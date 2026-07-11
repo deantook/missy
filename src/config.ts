@@ -13,6 +13,12 @@ export interface AppConfig {
   dida365McpUrl: string;
 }
 
+export interface HttpConfig extends AppConfig {
+  httpApiKey: string;
+  httpHost: string;
+  httpPort: number;
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -44,8 +50,8 @@ function assertProviderKey(model: string): void {
   // Other providers: rely on their own env vars; do not hard-fail here.
 }
 
-export function loadConfig(): AppConfig {
-  loadDotenv();
+export function loadConfig(options: { loadDotenv?: boolean } = {}): AppConfig {
+  if (options.loadDotenv !== false) loadDotenv();
 
   const model = requireEnv("MODEL");
   const dida365Token = requireEnv("DIDA365_TOKEN");
@@ -55,4 +61,18 @@ export function loadConfig(): AppConfig {
     process.env.DIDA365_MCP_URL?.trim() || "https://mcp.dida365.com";
 
   return { model, dida365Token, dida365McpUrl };
+}
+
+export function loadHttpConfig(
+  options: { loadDotenv?: boolean } = {},
+): HttpConfig {
+  const base = loadConfig(options);
+  const httpApiKey = requireEnv("HTTP_API_KEY");
+  const httpHost = process.env.HTTP_HOST?.trim() || "127.0.0.1";
+  const rawPort = process.env.HTTP_PORT?.trim() || "3000";
+  const httpPort = Number(rawPort);
+  if (!Number.isInteger(httpPort) || httpPort < 1 || httpPort > 65535) {
+    throw new ConfigError("HTTP_PORT 必须是 1 到 65535 之间的整数。");
+  }
+  return { ...base, httpApiKey, httpHost, httpPort };
 }

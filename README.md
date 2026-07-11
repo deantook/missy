@@ -26,6 +26,25 @@ npm start
 
 输入 `exit` / `quit` 或 Ctrl+C 退出。
 
+### HTTP 服务
+
+在 `.env` 中设置 `HTTP_API_KEY` 后启动独立服务（CLI 仍可继续使用）：
+
+```bash
+npm run serve
+```
+
+默认监听 `127.0.0.1:3000`。健康检查为 `GET /health`；对话接口需要 Bearer 鉴权：
+
+```bash
+curl -X POST http://127.0.0.1:3000/v1/chat \
+  -H "Authorization: Bearer $HTTP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"今天有哪些待办？","sessionId":"demo"}'
+```
+
+复用 `sessionId` 可延续上下文；省略时服务会生成并返回。删除默认不授权，只有当前请求明确传入 `"allowDelete": true` 时才会执行删除，授权不会延续到下一请求。
+
 ## 示例对话
 
 - 「今天有哪些待办？」
@@ -41,6 +60,9 @@ npm start
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | 按模型 | Provider key |
 | `DIDA365_TOKEN` | 是 | MCP Bearer Token |
 | `DIDA365_MCP_URL` | 否 | 默认 `https://mcp.dida365.com` |
+| `HTTP_API_KEY` | HTTP 必填 | `npm run serve` 的 Bearer 访问密钥 |
+| `HTTP_HOST` | 否 | 默认 `127.0.0.1` |
+| `HTTP_PORT` | 否 | 默认 `3000` |
 
 ## 测试
 

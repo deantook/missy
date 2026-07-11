@@ -1,32 +1,7 @@
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { randomUUID } from "node:crypto";
-import { Command } from "@langchain/langgraph";
-import type { createTaskAgent } from "./agent.ts";
-
-type TaskAgent = ReturnType<typeof createTaskAgent>["agent"];
-type AgentResult = Awaited<ReturnType<TaskAgent["invoke"]>>;
-
-function lastAssistantText(result: AgentResult): string {
-  const messages = result.messages as Array<{ content?: unknown }> | undefined;
-  if (!messages?.length) return "(无回复)";
-  const last = messages[messages.length - 1];
-  const content = last?.content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => {
-        if (typeof part === "string") return part;
-        if (part && typeof part === "object" && "text" in part) {
-          return String((part as { text: unknown }).text);
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n");
-  }
-  return String(content ?? "(无回复)");
-}
+import { lastAssistantText, resolveInterrupts, type TaskAgent } from "./conversation.ts";
 
 async function promptConfirm(
   rl: readline.Interface,
@@ -39,45 +14,6 @@ async function promptConfirm(
   const answer = (await rl.question("确认执行？[y/N] ")).trim().toLowerCase();
   if (answer === "y" || answer === "yes") return "approve";
   return "reject";
-}
-
-async function resolveInterrupts(
-  rl: readline.Interface,
-  agent: TaskAgent,
-  result: AgentResult,
-  config: { configurable: { thread_id: string } },
-): Promise<AgentResult> {
-  let current = result;
-
-  while ((current as Record<string, unknown>).__interrupt__) {
-    const interrupts = (current as Record<string, unknown>).__interrupt__ as Array<{
-      value: {
-        actionRequests: Array<{ name: string; args: unknown }>;
-      };
-    }>;
-    const actionRequests = interrupts[0]?.value?.actionRequests ?? [];
-    if (actionRequests.length === 0) {
-      throw new Error("收到中断但没有待确认的工具调用，已中止本轮。");
-    }
-    const decisions = [];
-
-    for (const action of actionRequests) {
-      const decision = await promptConfirm(rl, action.name, action.args);
-      if (decision === "approve") {
-        decisions.push({ type: "approve" as const });
-      } else {
-        decisions.push({
-          type: "reject" as const,
-          message:
-            "用户拒绝了该删除操作。不要重试同一删除，除非用户再次明确要求。",
-        });
-      }
-    }
-
-    current = await agent.invoke(new Command({ resume: { decisions } }), config);
-  }
-
-  return current;
 }
 
 export async function runRepl(agent: TaskAgent): Promise<void> {
@@ -98,7 +34,12 @@ export async function runRepl(agent: TaskAgent): Promise<void> {
           { messages: [{ role: "user", content: line }] },
           config,
         );
-        result = await resolveInterrupts(rl, agent, result, config);
+        result = await resolveInterrupts(
+          agent,
+          result,
+          config,
+          (name, args) => promptConfirm(rl, name, args),
+        );
         output.write(`\n助手: ${lastAssistantText(result)}\n`);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

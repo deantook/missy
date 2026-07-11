@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { loadConfig, ConfigError } from "../src/config.ts";
+import { loadConfig, loadHttpConfig, ConfigError } from "../src/config.ts";
 
 const ORIGINAL = { ...process.env };
 
@@ -14,7 +14,7 @@ describe("loadConfig", () => {
     process.env.DIDA365_TOKEN = "token-abc";
     delete process.env.DIDA365_MCP_URL;
 
-    const config = loadConfig();
+    const config = loadConfig({ loadDotenv: false });
     expect(config.model).toBe("openai:gpt-4.1");
     expect(config.dida365Token).toBe("token-abc");
     expect(config.dida365McpUrl).toBe("https://mcp.dida365.com");
@@ -23,27 +23,27 @@ describe("loadConfig", () => {
   it("throws when MODEL is missing", () => {
     delete process.env.MODEL;
     process.env.DIDA365_TOKEN = "token-abc";
-    expect(() => loadConfig()).toThrow(ConfigError);
+    expect(() => loadConfig({ loadDotenv: false })).toThrow(ConfigError);
   });
 
   it("throws when DIDA365_TOKEN is missing", () => {
     process.env.MODEL = "anthropic:claude-sonnet-4-5";
     delete process.env.DIDA365_TOKEN;
-    expect(() => loadConfig()).toThrow(ConfigError);
+    expect(() => loadConfig({ loadDotenv: false })).toThrow(ConfigError);
   });
 
   it("throws when Anthropic model has no ANTHROPIC_API_KEY", () => {
     process.env.MODEL = "anthropic:claude-sonnet-4-5";
     process.env.DIDA365_TOKEN = "token-abc";
     delete process.env.ANTHROPIC_API_KEY;
-    expect(() => loadConfig()).toThrow(ConfigError);
+    expect(() => loadConfig({ loadDotenv: false })).toThrow(ConfigError);
   });
 
   it("throws when OpenAI model has no OPENAI_API_KEY", () => {
     process.env.MODEL = "openai:gpt-4.1";
     process.env.DIDA365_TOKEN = "token-abc";
     delete process.env.OPENAI_API_KEY;
-    expect(() => loadConfig()).toThrow(ConfigError);
+    expect(() => loadConfig({ loadDotenv: false })).toThrow(ConfigError);
   });
 
   it("allows custom DIDA365_MCP_URL", () => {
@@ -51,6 +51,35 @@ describe("loadConfig", () => {
     process.env.OPENAI_API_KEY = "sk-test";
     process.env.DIDA365_TOKEN = "token-abc";
     process.env.DIDA365_MCP_URL = "https://example.com/mcp";
-    expect(loadConfig().dida365McpUrl).toBe("https://example.com/mcp");
+    expect(loadConfig({ loadDotenv: false }).dida365McpUrl).toBe("https://example.com/mcp");
+  });
+
+  it("loads HTTP defaults and overrides", () => {
+    process.env.MODEL = "openai:gpt-4.1";
+    process.env.OPENAI_API_KEY = "sk-test";
+    process.env.DIDA365_TOKEN = "token-abc";
+    process.env.HTTP_API_KEY = "http-secret";
+    delete process.env.HTTP_HOST;
+    delete process.env.HTTP_PORT;
+    const defaults = loadHttpConfig({ loadDotenv: false });
+    expect(defaults.httpHost).toBe("127.0.0.1");
+    expect(defaults.httpPort).toBe(3000);
+
+    process.env.HTTP_HOST = "0.0.0.0";
+    process.env.HTTP_PORT = "8080";
+    const custom = loadHttpConfig({ loadDotenv: false });
+    expect(custom.httpHost).toBe("0.0.0.0");
+    expect(custom.httpPort).toBe(8080);
+  });
+
+  it("requires HTTP_API_KEY and validates HTTP_PORT", () => {
+    process.env.MODEL = "openai:gpt-4.1";
+    process.env.OPENAI_API_KEY = "sk-test";
+    process.env.DIDA365_TOKEN = "token-abc";
+    delete process.env.HTTP_API_KEY;
+    expect(() => loadHttpConfig({ loadDotenv: false })).toThrow(ConfigError);
+    process.env.HTTP_API_KEY = "secret";
+    process.env.HTTP_PORT = "70000";
+    expect(() => loadHttpConfig({ loadDotenv: false })).toThrow(ConfigError);
   });
 });

@@ -2,15 +2,12 @@ import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { randomUUID } from "node:crypto";
 import { Command } from "@langchain/langgraph";
+import type { createTaskAgent } from "./agent.ts";
 
-type AgentLike = {
-  invoke: (
-    input: unknown,
-    config?: { configurable: { thread_id: string } },
-  ) => Promise<Record<string, unknown>>;
-};
+type TaskAgent = ReturnType<typeof createTaskAgent>["agent"];
+type AgentResult = Awaited<ReturnType<TaskAgent["invoke"]>>;
 
-function lastAssistantText(result: Record<string, unknown>): string {
+function lastAssistantText(result: AgentResult): string {
   const messages = result.messages as Array<{ content?: unknown }> | undefined;
   if (!messages?.length) return "(无回复)";
   const last = messages[messages.length - 1];
@@ -46,14 +43,14 @@ async function promptConfirm(
 
 async function resolveInterrupts(
   rl: readline.Interface,
-  agent: AgentLike,
-  result: Record<string, unknown>,
+  agent: TaskAgent,
+  result: AgentResult,
   config: { configurable: { thread_id: string } },
-): Promise<Record<string, unknown>> {
+): Promise<AgentResult> {
   let current = result;
 
-  while (current.__interrupt__) {
-    const interrupts = current.__interrupt__ as Array<{
+  while ((current as Record<string, unknown>).__interrupt__) {
+    const interrupts = (current as Record<string, unknown>).__interrupt__ as Array<{
       value: {
         actionRequests: Array<{ name: string; args: unknown }>;
       };
@@ -80,7 +77,7 @@ async function resolveInterrupts(
   return current;
 }
 
-export async function runRepl(agent: AgentLike): Promise<void> {
+export async function runRepl(agent: TaskAgent): Promise<void> {
   const rl = readline.createInterface({ input, output });
   const threadId = randomUUID();
   const config = { configurable: { thread_id: threadId } };

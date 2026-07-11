@@ -6,7 +6,7 @@
 
 - Node.js >= 20
 - 滴答清单 MCP Bearer Token
-- Anthropic 或 OpenAI（或其他已配置的 LangChain provider）API Key
+- Anthropic 或 OpenAI API Key（项目已依赖 `@langchain/anthropic` 与 `@langchain/openai`）
 
 ## 安装
 
@@ -15,6 +15,8 @@ npm install
 cp .env.example .env
 # 编辑 .env：填入 MODEL、对应 API Key、DIDA365_TOKEN
 ```
+
+若改用其他 LangChain provider，请自行安装对应 `@langchain/<provider>` 包。
 
 ## 启动
 

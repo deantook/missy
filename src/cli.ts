@@ -56,6 +56,9 @@ async function resolveInterrupts(
       };
     }>;
     const actionRequests = interrupts[0]?.value?.actionRequests ?? [];
+    if (actionRequests.length === 0) {
+      throw new Error("收到中断但没有待确认的工具调用，已中止本轮。");
+    }
     const decisions = [];
 
     for (const action of actionRequests) {

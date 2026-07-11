@@ -16,6 +16,7 @@ export async function connectDida365Mcp(
         headers: {
           Authorization: `Bearer ${config.dida365Token}`,
         },
+        automaticSSEFallback: false,
       },
     },
   });

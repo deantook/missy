@@ -45,12 +45,18 @@
   .app-shell.sidebar-collapsed .sidebar{pointer-events:none;opacity:0;transform:translateX(-100%)}
 }
 
+/* Shared top navigation sizing keeps chat and settings aligned. */
+.chat-header,.settings-header{height:67px;padding:0 24px}
+
 /* Account settings: compact hierarchy with balanced two-column cards. */
-.settings-header{gap:12px;padding:16px 24px;border-color:#e3e1da;background:#faf9f7d9}
+.settings-header{gap:10px;border-color:#e3e1da;background:#faf9f7d9}
 .settings-header .header-actions{margin-left:auto}
-.back-link{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:8px}
-.back-link span{font-size:17px;line-height:1}
-.back-link:hover{background:#efeee9}
+.header-divider{width:1px;height:20px;margin:0 2px;background:#dfded8}
+.back-link{display:grid;width:34px;height:34px;padding:0;place-items:center;border-radius:9px;color:#6c6d67}
+.back-link svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
+.back-link:hover{background:#eeede8;color:#30312d}
+.back-link:hover svg{transform:translateX(-1px)}
+.back-link:focus-visible{outline:2px solid #df604c;outline-offset:2px}
 .settings-content{padding:42px max(28px,calc((100% - 980px)/2)) 64px}
 .settings-intro{margin-bottom:28px}
 .settings-intro .eyebrow{margin-bottom:10px}
@@ -101,7 +107,8 @@
   .token-settings,.account-actions{grid-column:auto}
 }
 @media(max-width:760px){
-  .settings-header{padding:12px 13px}
+  .chat-header,.settings-header{height:59px;padding:0 13px}
+  .header-divider{margin:0}
   .settings-content{padding:28px 14px 40px}
   .settings-intro{margin-bottom:22px}
   .settings-intro h1{font-size:27px}

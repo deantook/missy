@@ -374,7 +374,7 @@ function renderSettingsPage(): void {
   root.innerHTML = `<div class="${appShellClass()}">
     ${renderSidebar()}
     <main class="settings-pane">
-      <header class="settings-header">${sidebarToggle()}<button id="back-to-chat" class="back-link" type="button"><span>←</span> 返回对话</button><div class="header-actions">${profileAvatar(true)}</div></header>
+      <header class="settings-header">${sidebarToggle()}<span class="header-divider" aria-hidden="true"></span><button id="back-to-chat" class="back-link" type="button" title="返回对话" aria-label="返回对话"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><div class="header-actions">${profileAvatar(true)}</div></header>
       <div class="settings-content"><div class="settings-intro"><p class="eyebrow">ACCOUNT SETTINGS</p><h1>账户设置</h1><p>管理你的个人资料、服务连接与账户安全。</p></div>${renderSettingsContent()}</div>
     </main></div>`;
   renderConversationList();

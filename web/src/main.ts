@@ -2,6 +2,7 @@ import "./style.css";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { parseChoicePrompt, visibleAssistantContent, type ChoicePrompt } from "./choice-prompt.ts";
+import { DebugTimeline, isDebugBuild, type ClientDebugEvent } from "./debug-panel.ts";
 
 type Usage = { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null };
 type User = { id: string; email: string; displayName: string; didaTokenConfigured: boolean; didaTokenHint: string | null };
@@ -11,7 +12,12 @@ type StreamEvent =
   | { type: "start"; turn: Turn }
   | { type: "delta"; delta: string; reset?: boolean }
   | { type: "done"; turn: Turn }
-  | { type: "error"; error: { message?: string } };
+  | { type: "debug"; event: ClientDebugEvent }
+  | { type: "error"; error: { message?: string; code?: string; stack?: string; cause?: string } };
+
+const debugEnabled = isDebugBuild();
+const debugPanelStorageKey = "missy.debugPanelCollapsed";
+const debugTimeline = new DebugTimeline();
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("找不到应用挂载点");
@@ -25,6 +31,10 @@ let dismissedChoiceTurnId: string | null = null;
 const sidebarStorageKey = "missy.sidebarCollapsed";
 let sidebarCollapsed = (() => {
   try { return localStorage.getItem(sidebarStorageKey) === "true"; }
+  catch { return false; }
+})();
+let debugPanelCollapsed = (() => {
+  try { return localStorage.getItem(debugPanelStorageKey) === "true"; }
   catch { return false; }
 })();
 
@@ -256,7 +266,49 @@ function renderSidebar(): string {
 }
 
 function appShellClass(): string {
-  return `app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`;
+  const classes = ["app-shell"];
+  if (sidebarCollapsed) classes.push("sidebar-collapsed");
+  if (debugEnabled) {
+    classes.push("has-debug");
+    if (debugPanelCollapsed) classes.push("debug-collapsed");
+  }
+  return classes.join(" ");
+}
+
+function renderDebugPane(): string {
+  if (!debugEnabled) return "";
+  return `<aside class="debug-pane" aria-label="调试面板">
+  <header class="debug-header">
+    <strong>调试</strong>
+    <span class="debug-badge">DEBUG</span>
+    <div class="debug-actions">
+      <button id="debug-clear" type="button">清空</button>
+      <button id="debug-toggle" type="button">${debugPanelCollapsed ? "展开" : "折叠"}</button>
+    </div>
+  </header>
+  <div id="debug-timeline" class="debug-timeline"></div>
+</aside>`;
+}
+
+function renderDebugPanel(): void {
+  const timeline = document.querySelector<HTMLElement>("#debug-timeline");
+  if (timeline) timeline.innerHTML = debugTimeline.renderHtml(escapeHtml);
+  const toggle = document.querySelector<HTMLButtonElement>("#debug-toggle");
+  if (toggle) toggle.textContent = debugPanelCollapsed ? "展开" : "折叠";
+}
+
+function bindDebugPanel(): void {
+  if (!debugEnabled) return;
+  document.querySelector("#debug-clear")?.addEventListener("click", () => {
+    debugTimeline.clear();
+    renderDebugPanel();
+  });
+  document.querySelector("#debug-toggle")?.addEventListener("click", () => {
+    debugPanelCollapsed = !debugPanelCollapsed;
+    document.querySelector(".app-shell")!.classList.toggle("debug-collapsed", debugPanelCollapsed);
+    try { localStorage.setItem(debugPanelStorageKey, String(debugPanelCollapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
+    renderDebugPanel();
+  });
 }
 
 function sidebarEdgeToggle(): string {
@@ -315,16 +367,17 @@ function renderApp(): void {
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
     <main class="chat-pane">
-      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${profileAvatar()}</div></header>
+      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${debugEnabled ? '<span class="chat-debug-badge">DEBUG</span>' : ""}${profileAvatar()}</div></header>
       <section id="messages" class="messages">${renderMessages()}</section>
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
         <form id="composer" class="composer"><textarea id="message-input" maxlength="4000" rows="1" placeholder="给 Missy 发送消息…" ${!user.didaTokenConfigured || pending ? "disabled" : ""}></textarea><button class="send" type="submit" ${!user.didaTokenConfigured || pending ? "disabled" : ""} aria-label="发送">↑</button></form>
         <p class="hint">Enter 发送 · Shift + Enter 换行</p>
       </div>
-    </main>${renderChoiceDialog()}</div>`;
+    </main>${renderDebugPane()}${renderChoiceDialog()}</div>`;
   renderConversationList();
   bindAppEvents();
+  if (debugEnabled) renderDebugPanel();
   requestAnimationFrame(() => {
     const messages = document.querySelector<HTMLElement>("#messages");
     if (messages) messages.scrollTop = messages.scrollHeight;
@@ -437,6 +490,7 @@ function bindAppEvents(): void {
   document.querySelector("#profile-button")!.addEventListener("click", () => navigate("/settings"));
   document.querySelector("#configure-token")?.addEventListener("click", () => navigate("/settings"));
   bindSidebarToggle();
+  bindDebugPanel();
   document.querySelectorAll<HTMLButtonElement>(".suggestions button").forEach((button) => button.addEventListener("click", () => void sendMessage(button.textContent ?? "")));
   document.querySelectorAll<HTMLButtonElement>(".feedback-btn").forEach((button) => {
     button.addEventListener("click", () => {
@@ -530,6 +584,7 @@ async function openConversation(id: string): Promise<void> {
   try {
     const result = await api<{ conversation: Conversation; turns: Turn[] }>(`/v1/conversations/${id}`);
     active = result.conversation; turns = result.turns;
+    if (debugEnabled) debugTimeline.clear();
     if (currentPath() !== "/") navigate("/");
     else renderApp();
     setTimeout(() => { const el = document.querySelector("#messages"); if (el) el.scrollTop = el.scrollHeight; });
@@ -544,8 +599,12 @@ async function sendMessage(message: string): Promise<void> {
   const optimistic: Turn = { id: "pending", userContent: message, assistantContent: null, status: "pending", feedback: null, usage: { inputTokens: null, outputTokens: null, totalTokens: null }, createdAt: new Date().toISOString() };
   turns.push(optimistic); pending = true; renderApp();
   try {
-    await streamApi(`/v1/conversations/${conversationId}/messages`, { message, allowDelete: false }, (event) => {
+    await streamApi(`/v1/conversations/${conversationId}/messages`, { message, allowDelete: false, ...(debugEnabled ? { debug: true } : {}) }, (event) => {
       if (event.type === "start") {
+        if (debugEnabled) {
+          debugTimeline.clear();
+          renderDebugPanel();
+        }
         Object.assign(optimistic, event.turn);
       } else if (event.type === "delta") {
         optimistic.assistantContent = (event.reset ? "" : optimistic.assistantContent ?? "") + event.delta;
@@ -555,7 +614,19 @@ async function sendMessage(message: string): Promise<void> {
         if (messages) messages.scrollTop = messages.scrollHeight;
       } else if (event.type === "done") {
         turns[turns.length - 1] = event.turn;
-      } else {
+      } else if (event.type === "debug") {
+        debugTimeline.append(event.event);
+        renderDebugPanel();
+      } else if (event.type === "error") {
+        if (debugEnabled) {
+          debugTimeline.setError({
+            code: event.error.code ?? "unknown",
+            message: event.error.message ?? "请求失败。",
+            stack: event.error.stack,
+            cause: event.error.cause,
+          });
+          renderDebugPanel();
+        }
         throw new Error(event.error.message || "请求失败。");
       }
     });

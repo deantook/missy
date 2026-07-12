@@ -55,6 +55,45 @@
   .chat-pane,.settings-pane{grid-column:1}
 }
 
+/* Live debug side panel (--debug builds only). */
+.debug-pane{grid-column:3;grid-row:1;display:flex;min-width:0;flex-direction:column;border-left:1px solid #2a2b28;background:#1e1f1c;color:#d8d9d4;overflow:hidden}
+.debug-header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #2e2f2b;flex-shrink:0}
+.debug-header strong{font-size:13px;color:#ecece8}
+.debug-badge,.chat-debug-badge{padding:2px 6px;border-radius:4px;background:#df604c33;color:#f09080;font-size:9px;font-weight:700;letter-spacing:.06em}
+.chat-header .header-actions{width:auto;gap:8px}
+.debug-actions{display:flex;gap:6px;margin-left:auto}
+.debug-actions button{padding:4px 8px;border:1px solid #3a3b36;border-radius:6px;background:#2a2b27;color:#b8b9b3;font-size:11px;font-weight:600}
+.debug-actions button:hover{background:#343530;color:#e2e3dd}
+.debug-timeline{flex:1;min-height:0;overflow-y:auto;padding:10px 12px;font-size:11px;line-height:1.5}
+.debug-item{margin-bottom:8px;padding:8px;border-radius:6px;background:#262724}
+.debug-item pre{margin:4px 0 0;white-space:pre-wrap;word-break:break-word;font-family:"SFMono-Regular",Consolas,monospace;font-size:10px;color:#c8c9c4}
+.debug-item strong{color:#e8e9e4;font-size:11px}
+.debug-item.tool.ok{border-left:2px solid #4a8a62}
+.debug-item.tool.bad{border-left:2px solid #c75a4a}
+.debug-tag{display:inline-block;margin-bottom:4px;padding:1px 5px;border-radius:3px;background:#3a3b36;color:#9a9b95;font-size:9px;font-weight:700;text-transform:lowercase}
+.debug-item.tool.ok .debug-tag{background:#2a4a35;color:#6dba82}
+.debug-item.tool.bad .debug-tag{background:#4a2a28;color:#e08070}
+.debug-item.phase .debug-tag{background:#2a3340;color:#8ab0d4}
+.debug-item.mcp .debug-tag{background:#332a40;color:#b08ad4}
+.debug-item.thinking .debug-tag{background:#33352a;color:#b0b48a}
+.debug-error{margin-bottom:10px;padding:10px;border:1px solid #6b3030;border-radius:6px;background:#2a1f1f}
+.debug-error pre{margin:4px 0 0;white-space:pre-wrap;word-break:break-word;font-family:"SFMono-Regular",Consolas,monospace;font-size:10px;color:#e8a8a0}
+.debug-empty{margin:0;color:#6a6b65;font-style:italic}
+@media(min-width:761px){
+  .app-shell.has-debug{grid-template-columns:270px 1fr 320px}
+  .app-shell.has-debug.debug-collapsed{grid-template-columns:270px 1fr 0}
+  .app-shell.sidebar-collapsed.has-debug{grid-template-columns:0 1fr 320px}
+  .app-shell.sidebar-collapsed.has-debug.debug-collapsed{grid-template-columns:0 1fr 0}
+  .app-shell.has-debug.debug-collapsed .debug-pane{pointer-events:none;opacity:0;overflow:hidden}
+}
+@media(max-width:960px){
+  .app-shell.has-debug{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .app-shell.has-debug .chat-pane,.app-shell.has-debug .settings-pane{grid-column:1;grid-row:1;height:auto;min-height:0}
+  .app-shell.has-debug .debug-pane{grid-column:1;grid-row:2;max-height:42vh;border-left:0;border-top:1px solid #2a2b28}
+  .app-shell.has-debug.debug-collapsed .debug-pane{max-height:44px}
+  .app-shell.has-debug.debug-collapsed .debug-timeline{display:none}
+}
+
 
 /* Shared top navigation sizing keeps chat and settings aligned. */
 .chat-header,.settings-header{height:67px;padding:0 24px}

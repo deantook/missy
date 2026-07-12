@@ -47,6 +47,27 @@ NODE_ENV=production npm run serve
 
 访问 `http://127.0.0.1:3000`。
 
+## 桌面端（Tauri）
+
+与 Web 共用 `web/` 前端。桌面壳不内嵌后端，连接远程（或本地）HTTP API。
+
+要求：Node 20+、Rust（[rustup](https://rustup.rs)）、各平台 Tauri 系统依赖见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
+
+开发（另开终端先启动 API）：
+
+```bash
+npm run serve
+npm run desktop:dev
+```
+
+打包（将 API 地址写入前端构建）：
+
+```bash
+VITE_API_BASE=https://your-api.example.com npm run desktop:build
+```
+
+生产 API 需配置 `CORS_ORIGINS`，包含 Tauri WebView Origin（常见为 `tauri://localhost`、`https://tauri.localhost`）。
+
 ## 配置
 
 | 变量 | 必填 | 说明 |
@@ -56,8 +77,11 @@ NODE_ENV=production npm run serve
 | `DATABASE_URL` | 否 | PostgreSQL 连接，默认使用本地 `missy` 数据库 |
 | `DIDA365_MCP_URL` | 否 | 默认 `https://mcp.dida365.com` |
 | `HTTP_HOST` / `HTTP_PORT` | 否 | 默认 `127.0.0.1:3000` |
-| `NODE_ENV` | 否 | `production` 时启用 Secure Cookie 并托管 `web/dist` |
+| `NODE_ENV` | 否 | `production` 时托管 `web/dist` |
+| `CORS_ORIGINS` | 否 | 逗号分隔的跨域 Origin；开发未设置时默认包含 Vite 与 Tauri；生产若桌面或独立 Web 源调用 API 需显式配置 |
 | `DIDA365_TOKEN` | CLI 必填 | 仅 `npm start` 的单用户 CLI 使用 |
+
+鉴权已改为 Bearer Token：浏览器与桌面端均在请求头携带 `Authorization: Bearer <token>`。旧版 Cookie 会话已失效，需重新登录。
 
 ## 验证
 

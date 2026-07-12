@@ -114,13 +114,12 @@ function renderAuth(): void {
   });
 }
 
-function renderSidebar(activePage: "chat" | "settings" = "chat"): string {
+function renderSidebar(): string {
   if (!user) return "";
   return `<aside class="sidebar">
     <div class="logo"><span>✦</span><strong>Missy</strong></div>
     <button id="new-chat" class="new-chat" type="button"><span>＋</span> 新建对话</button>
     <nav class="history"><p>最近对话</p><div id="conversation-list"></div></nav>
-    <button id="profile-button" class="profile ${activePage === "settings" ? "active" : ""}" type="button"><span>${escapeHtml(user.displayName.slice(0, 1).toUpperCase())}</span><div><strong>${escapeHtml(user.displayName)}</strong><small>${escapeHtml(user.email)}</small></div><b>•••</b></button>
   </aside>`;
 }
 
@@ -132,7 +131,19 @@ function sidebarToggle(): string {
   return `<button id="sidebar-toggle" class="icon-button" type="button" title="显示或隐藏对话历史" aria-label="显示或隐藏对话历史" aria-pressed="${sidebarCollapsed}">☰</button>`;
 }
 
+function profileAvatar(active = false): string {
+  if (!user) return "";
+  const initial = escapeHtml(user.displayName.slice(0, 1).toUpperCase());
+  return `<button id="profile-button" class="profile-avatar${active ? " active" : ""}" type="button" title="${escapeHtml(user.displayName)}" aria-label="账户设置">${initial}</button>`;
+}
+
 function bindSidebarToggle(): void {
+  const setDesktopCollapsed = (collapsed: boolean) => {
+    sidebarCollapsed = collapsed;
+    document.querySelector(".app-shell")!.classList.toggle("sidebar-collapsed", collapsed);
+    document.querySelector("#sidebar-toggle")!.setAttribute("aria-pressed", String(collapsed));
+    try { localStorage.setItem(sidebarStorageKey, String(collapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
+  };
   document.querySelector("#sidebar-toggle")!.addEventListener("click", () => {
     const sidebar = document.querySelector(".sidebar")!;
     if (window.matchMedia("(max-width: 760px)").matches) {
@@ -140,24 +151,21 @@ function bindSidebarToggle(): void {
       document.querySelector("#sidebar-toggle")!.setAttribute("aria-expanded", String(open));
       return;
     }
-    sidebarCollapsed = !sidebarCollapsed;
-    document.querySelector(".app-shell")!.classList.toggle("sidebar-collapsed", sidebarCollapsed);
-    document.querySelector("#sidebar-toggle")!.setAttribute("aria-pressed", String(sidebarCollapsed));
-    try { localStorage.setItem(sidebarStorageKey, String(sidebarCollapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
+    setDesktopCollapsed(!sidebarCollapsed);
   });
 }
 
 function renderApp(): void {
   if (!user) return renderAuth();
   root.innerHTML = `<div class="${appShellClass()}">
-    ${renderSidebar("chat")}
+    ${renderSidebar()}
     <main class="chat-pane">
-      <header class="chat-header">${sidebarToggle()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions"><span class="online-dot"></span></div></header>
+      <header class="chat-header">${sidebarToggle()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${profileAvatar()}</div></header>
       <section id="messages" class="messages">${renderMessages()}</section>
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
-        <form id="composer" class="composer"><textarea id="message-input" maxlength="4000" rows="1" placeholder="给 Missy 发送消息…" ${!user.didaTokenConfigured || pending ? "disabled" : ""}></textarea><div class="composer-footer"><label><input id="allow-delete" type="checkbox"> 允许本次删除</label><button class="send" type="submit" ${!user.didaTokenConfigured || pending ? "disabled" : ""}>↑</button></div></form>
-        <p class="hint">Enter 发送 · Shift + Enter 换行 · 删除授权仅对本次请求生效</p>
+        <form id="composer" class="composer"><textarea id="message-input" maxlength="4000" rows="1" placeholder="给 Missy 发送消息…" ${!user.didaTokenConfigured || pending ? "disabled" : ""}></textarea><button class="send" type="submit" ${!user.didaTokenConfigured || pending ? "disabled" : ""} aria-label="发送">↑</button></form>
+        <p class="hint">Enter 发送 · Shift + Enter 换行</p>
       </div>
     </main></div>`;
   renderConversationList();
@@ -171,8 +179,8 @@ function renderApp(): void {
 function renderMessages(): string {
   if (!turns.length) return `<div class="welcome"><div class="brand-mark">✦</div><h1>今天想安排什么？</h1><p>查询待办、创建任务、调整日程，或者完成你的清单。</p><div class="suggestions"><button>今天有哪些待办？</button><button>创建一个明天下午三点写周报的任务</button><button>列出最近七天已完成的任务</button></div></div>`;
   return turns.map((turn) => `<div class="turn">
-    <article class="message user"><div class="avatar">你</div><div><p>你</p><div class="bubble">${escapeHtml(turn.userContent).replace(/\n/g, "<br>")}</div></div></article>
-    <article class="message assistant"><div class="avatar">✦</div><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div>${turn.status !== "pending" ? `<small class="usage">输入 ${turn.usage.inputTokens ?? "—"} · 输出 ${turn.usage.outputTokens ?? "—"} · 总计 ${turn.usage.totalTokens ?? "—"} tokens</small>` : ""}</div></article>
+    <article class="message user"><div><p>你</p><div class="bubble">${escapeHtml(turn.userContent).replace(/\n/g, "<br>")}</div></div></article>
+    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div></div></article>
   </div>`).join("");
 }
 
@@ -250,11 +258,10 @@ async function sendMessage(message: string): Promise<void> {
   if (!active) await createConversation();
   if (!active) return;
   const conversationId = active.id;
-  const allowDelete = document.querySelector<HTMLInputElement>("#allow-delete")?.checked === true;
   const optimistic: Turn = { id: "pending", userContent: message, assistantContent: null, status: "pending", usage: { inputTokens: null, outputTokens: null, totalTokens: null }, createdAt: new Date().toISOString() };
   turns.push(optimistic); pending = true; renderApp();
   try {
-    const result = await api<{ turn: Turn }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ message, allowDelete }) });
+    const result = await api<{ turn: Turn }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ message, allowDelete: false }) });
     turns[turns.length - 1] = result.turn;
     await loadConversations(); active = conversations.find((item) => item.id === conversationId) ?? active;
   } catch (error) {
@@ -296,9 +303,9 @@ function renderSettingsContent(): string {
 function renderSettingsPage(): void {
   if (!user) return renderAuth();
   root.innerHTML = `<div class="${appShellClass()}">
-    ${renderSidebar("settings")}
+    ${renderSidebar()}
     <main class="settings-pane">
-      <header class="settings-header">${sidebarToggle()}<button id="back-to-chat" class="back-link" type="button">← 返回对话</button><div><p class="eyebrow">ACCOUNT</p><h2>账户设置</h2></div></header>
+      <header class="settings-header">${sidebarToggle()}<button id="back-to-chat" class="back-link" type="button">← 返回对话</button><div><p class="eyebrow">ACCOUNT</p><h2>账户设置</h2></div><div class="header-actions">${profileAvatar(true)}</div></header>
       <div class="settings-content">${renderSettingsContent()}</div>
     </main></div>`;
   renderConversationList();

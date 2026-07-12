@@ -44,7 +44,7 @@ https://mcp.dida365.com  (Authorization: Bearer <token>)
 ## 目录与模块
 
 ```text
-mssiy/
+missy/
 ├── package.json
 ├── tsconfig.json
 ├── .env.example

@@ -44,7 +44,7 @@
 
 ```json
 {
-  "name": "mssiy",
+  "name": "missy",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -701,7 +701,7 @@ git commit -m "feat: wire CLI entrypoint for Dida365 Deep Agent"
 - [ ] **Step 1: Write `README.md`**
 
 ```markdown
-# mssiy — 滴答清单 Deep Agent 助手
+# missy — 滴答清单 Deep Agent 助手
 
 基于 [Deep Agents](https://docs.langchain.com/oss/javascript/deepagents/overview) 的终端任务助手，通过 MCP 连接 [mcp.dida365.com](https://mcp.dida365.com)。
 

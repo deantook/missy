@@ -96,7 +96,7 @@ Tauri 安装包内嵌 web/dist  ──HTTPS──►  生产 API（VITE_API_BASE
 ### 目录与职责
 
 ```text
-mssiy/
+missy/
 ├── web/              # 共用前端（Vite）
 ├── src/              # Express + Agent
 ├── src-tauri/        # Tauri 2：窗口、打包配置

@@ -55,10 +55,14 @@ export function AppShell({ children, debug, debugCollapsed = false }: AppShellPr
       <button
         className={styles.edgeToggle}
         type="button"
-        aria-label={collapsed ? "展开侧栏" : "收起侧栏"}
+        title="显示或隐藏对话历史"
+        aria-label="显示或隐藏对话历史"
+        aria-pressed={collapsed}
         onClick={() => setCollapsed((value) => !value)}
       >
-        {collapsed ? "›" : "‹"}
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d={collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
+        </svg>
       </button>
       <main className={styles.main}>{children}</main>
       {debug}

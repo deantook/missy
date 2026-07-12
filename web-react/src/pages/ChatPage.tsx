@@ -68,8 +68,7 @@ export function ChatPage() {
   }, [active, conversations, openConversation]);
 
   const didaReady = Boolean(user?.didaTokenConfigured);
-  const title = active?.title ?? "新聊天";
-  const profileLabel = user?.displayName?.slice(0, 1).toUpperCase() || "M";
+  const title = active?.title ?? "新对话";
   const pendingChoice = useMemo(() => {
     const turn = [...turns].reverse().find((item) => item.status === "succeeded");
     if (!turn || turn.id === dismissedChoiceTurnId) return null;
@@ -100,7 +99,6 @@ export function ChatPage() {
         <header className={styles.header}>
           <div className={styles.title}>
             <h2>{title}</h2>
-            <p>{didaReady ? "已连接滴答清单" : "需要配置滴答清单 Token"}</p>
           </div>
           <div className={styles.actions}>
             {debugEnabled ? (
@@ -117,25 +115,27 @@ export function ChatPage() {
             <ThemeToggle />
             <button
               type="button"
-              className={styles.profile}
-              aria-label="打开设置"
+              className={styles.settings}
+              title="账户设置"
+              aria-label="账户设置"
               onClick={() => navigate("/settings")}
             >
-              {profileLabel}
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
             </button>
           </div>
         </header>
         {!didaReady ? (
-          <div className={styles.banner}>
+          <button type="button" className={styles.banner} onClick={() => navigate("/settings")}>
             <span>!</span>
             <div>
-              <b>还不能发送消息</b>
-              <small>先到设置页配置滴答清单 Token，Missy 才能读取和整理任务。</small>
+              <strong>连接滴答清单</strong>
+              <small>配置 Dida MCP Token 后即可开始对话</small>
             </div>
-            <button type="button" onClick={() => navigate("/settings")}>
-              去设置
-            </button>
-          </div>
+            <b>去设置 →</b>
+          </button>
         ) : null}
       </div>
       <MessageList

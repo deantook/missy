@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import styles from "./Composer.module.css";
 
 type ComposerProps = {
@@ -9,8 +9,16 @@ type ComposerProps = {
 
 export function Composer({ pending, didaTokenConfigured, sendMessage }: ComposerProps) {
   const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const disabled = !didaTokenConfigured || pending;
   const trimmed = value.trim();
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [value]);
 
   const submit = () => {
     if (disabled || !trimmed) return;
@@ -25,27 +33,29 @@ export function Composer({ pending, didaTokenConfigured, sendMessage }: Composer
   };
 
   return (
-    <form
-      className={styles.wrap}
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <div className={styles.composer}>
+    <div className={styles.wrap}>
+      <form
+        className={styles.composer}
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
         <textarea
+          ref={textareaRef}
           value={value}
           disabled={disabled}
+          maxLength={4000}
           rows={1}
-          placeholder={didaTokenConfigured ? "输入消息，Enter 发送" : "先在设置中配置滴答清单 Token"}
+          placeholder="给 Missy 发送消息…"
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={onKeyDown}
         />
         <button className={styles.send} type="submit" disabled={disabled || !trimmed} aria-label="发送">
           ↑
         </button>
-      </div>
-      <p className={styles.hint}>Enter 发送，Shift + Enter 换行</p>
-    </form>
+      </form>
+      <p className={styles.hint}>Enter 发送 · Shift + Enter 换行</p>
+    </div>
   );
 }

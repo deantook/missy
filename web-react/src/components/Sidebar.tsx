@@ -12,10 +12,6 @@ type SidebarProps = {
   onCloseMobile: () => void;
 };
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", { month: "short", day: "numeric" }).format(new Date(value));
-}
-
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const {
     conversations,
@@ -35,8 +31,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
   const remove = async (conversation: Conversation) => {
     const ok = await confirm({
-      title: "删除会话",
-      message: `确定删除会话「${conversation.title}」？此操作无法撤销。`,
+      title: "删除这个对话？",
+      message: `“${conversation.title}”及其中的全部记录将被永久删除，此操作无法撤销。`,
       confirmLabel: "删除",
     });
     if (ok) await deleteConversation(conversation.id);
@@ -45,49 +41,45 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <aside className={`${styles.sidebar} ${mobileOpen ? styles.open : ""}`}>
       <div className={styles.logo}>
-        <span>M</span>
-        Missy
+        <span>✦</span>
+        <strong>Missy</strong>
       </div>
-      <button type="button" className={styles.newChat} onClick={() => void createConversation()}>
-        <span>+</span>
-        新聊天
-      </button>
-      <div className={styles.history}>
-        <p className={styles.historyHeader}>Conversations</p>
-        {conversations.length === 0 ? <p className={styles.empty}>还没有会话</p> : null}
-        {conversations.map((conversation) => (
-          <div
-            key={conversation.id}
-            className={`${styles.item} ${active?.id === conversation.id ? styles.active : ""}`}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              setMenu({ conversation, x: event.clientX, y: event.clientY });
-            }}
+      <nav className={styles.history}>
+        <div className={styles.historyHeader}>
+          <p>最近对话</p>
+          <button
+            type="button"
+            className={styles.newChat}
+            title="新建对话"
+            aria-label="新建对话"
+            onClick={() => void createConversation()}
           >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </div>
+        <div className={styles.list}>
+          {conversations.length === 0 ? <p className={styles.empty}>还没有历史对话</p> : null}
+          {conversations.map((conversation) => (
             <button
+              key={conversation.id}
               type="button"
-              className={styles.conversation}
+              className={`${styles.item} ${active?.id === conversation.id ? styles.active : ""}`}
               onClick={() => {
                 onCloseMobile();
                 void openConversation(conversation.id);
               }}
-            >
-              <span className={styles.title}>{conversation.title}</span>
-              <small className={styles.date}>{formatDate(conversation.updatedAt)}</small>
-            </button>
-            <button
-              type="button"
-              className={styles.more}
-              onClick={(event) => {
+              onContextMenu={(event) => {
+                event.preventDefault();
                 setMenu({ conversation, x: event.clientX, y: event.clientY });
               }}
-              aria-label={`打开「${conversation.title}」菜单`}
             >
-              ...
+              <span>{conversation.title}</span>
             </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </nav>
       {menu ? (
         <ConversationMenu
           x={menu.x}

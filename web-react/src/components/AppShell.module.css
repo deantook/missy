@@ -38,10 +38,26 @@
   margin: 0;
   border: 1px solid var(--color-border);
   border-radius: 99px;
-  background: var(--color-panel);
-  color: var(--color-muted);
+  background: #f7f6f2;
+  color: #6c6d67;
   box-shadow: 0 1px 4px #2a2a2414;
   transform: translateX(-50%);
+}
+
+.edgeToggle svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edgeToggle:hover {
+  background: #fff;
+  color: #30312d;
+  border-color: #cfcfc7;
 }
 
 .mobileToggle {

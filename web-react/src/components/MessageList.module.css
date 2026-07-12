@@ -20,7 +20,8 @@
   border-radius: 15px;
   background: var(--color-accent);
   color: white;
-  font-weight: 700;
+  font-size: 21px;
+  box-shadow: 0 12px 28px #bd49352b;
 }
 
 .welcome h1 {

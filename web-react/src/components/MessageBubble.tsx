@@ -15,51 +15,70 @@ function MessageBubbleComponent({ turn, pending, setTurnFeedback }: MessageBubbl
   const failed = turn.status === "failed";
   const showTyping = turn.status === "pending" && !assistantText;
   const showFeedback = turn.status === "succeeded";
+  const like = turn.feedback === "like";
+  const dislike = turn.feedback === "dislike";
 
   return (
-    <article className={styles.turn}>
-      <div className={`${styles.message} ${styles.user}`}>
-        <p className={styles.label}>你</p>
-        <div className={`${styles.bubble} ${styles.userBubble}`}>{turn.userContent}</div>
-      </div>
-      <div className={`${styles.message} ${styles.assistant}`}>
-        <p className={styles.label}>Missy</p>
-        <div className={`${styles.bubble} ${styles.assistantBubble} ${failed ? styles.failed : ""}`}>
-          {failed ? turn.errorMessage || "请求失败，请稍后重试。" : null}
-          {showTyping ? (
-            <span className={styles.typing} aria-label="Missy 正在输入">
-              <i />
-              <i />
-              <i />
-            </span>
-          ) : null}
-          {!failed && assistantText ? <Markdown content={assistantText} /> : null}
+    <div className={styles.turn}>
+      <article className={`${styles.message} ${styles.user}`}>
+        <div>
+          <p className={styles.label}>你</p>
+          <div className={`${styles.bubble} ${styles.userBubble}`}>{turn.userContent}</div>
         </div>
-        {turn.usage.totalTokens ? (
-          <small className={styles.usage}>本轮约 {turn.usage.totalTokens} tokens</small>
-        ) : null}
-        {showFeedback ? (
-          <div className={styles.feedback} aria-label="反馈">
-            <button
-              type="button"
-              className={turn.feedback === "like" ? styles.active : ""}
-              disabled={pending}
-              onClick={() => void setTurnFeedback(turn.id, "like")}
-            >
-              赞
-            </button>
-            <button
-              type="button"
-              className={turn.feedback === "dislike" ? styles.active : ""}
-              disabled={pending}
-              onClick={() => void setTurnFeedback(turn.id, "dislike")}
-            >
-              踩
-            </button>
+      </article>
+      <article className={`${styles.message} ${styles.assistant}`}>
+        <div className={styles.content}>
+          <p className={styles.label}>Missy</p>
+          <div className={`${styles.bubble} ${styles.assistantBubble} ${failed ? styles.failed : ""}`}>
+            {failed ? `请求失败：${turn.errorMessage || "未知错误"}` : null}
+            {showTyping ? (
+              <span className={styles.typing} aria-label="Missy 正在输入">
+                <i />
+                <i />
+                <i />
+              </span>
+            ) : null}
+            {!failed && assistantText ? <Markdown content={assistantText} /> : null}
           </div>
-        ) : null}
-      </div>
-    </article>
+          {showFeedback ? (
+            <div className={styles.feedback} role="group" aria-label="回复评价">
+              <button
+                type="button"
+                className={`${styles.feedbackBtn} ${like ? styles.active : ""}`}
+                title="有帮助"
+                aria-label="点赞"
+                aria-pressed={like}
+                disabled={pending}
+                onClick={() => void setTurnFeedback(turn.id, "like")}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 6.59 7.59C6.22 7.95 6 8.45 6 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={`${styles.feedbackBtn} ${dislike ? styles.active : ""}`}
+                title="没帮助"
+                aria-label="点踩"
+                aria-pressed={dislike}
+                disabled={pending}
+                onClick={() => void setTurnFeedback(turn.id, "dislike")}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M22 3h-4v12h4V3zM2 14c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l6.58-6.59c.37-.36.59-.86.59-1.41V5c0-1.1-.9-2-2-2H7c-.83 0-1.54.5-1.84 1.22L2.14 11.27c-.09.23-.14.47-.14.73v2z"
+                  />
+                </svg>
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </article>
+    </div>
   );
 }
 

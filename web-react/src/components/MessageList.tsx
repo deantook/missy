@@ -4,10 +4,9 @@ import { MessageBubble } from "./MessageBubble.tsx";
 import styles from "./MessageList.module.css";
 
 const suggestions = [
-  "帮我整理今天的滴答清单",
-  "找出本周最重要的待办",
-  "把这个想法拆成可执行任务",
-  "提醒我检查过期任务",
+  "今天有哪些待办？",
+  "创建一个明天下午三点写周报的任务",
+  "列出最近七天已完成的任务",
 ];
 
 type MessageListProps = {
@@ -28,9 +27,9 @@ export function MessageList({ turns, pending, sendMessage, setTurnFeedback }: Me
     return (
       <section className={styles.messages}>
         <div className={styles.welcome}>
-          <div className={styles.mark}>M</div>
-          <h1>今天想让 Missy 帮你安排什么？</h1>
-          <p>从滴答清单里找重点，或者直接说出你想推进的事。</p>
+          <div className={styles.mark}>✦</div>
+          <h1>今天想安排什么？</h1>
+          <p>查询待办、创建任务、调整日程，或者完成你的清单。</p>
           <div className={styles.suggestions}>
             {suggestions.map((item) => (
               <button key={item} type="button" disabled={pending} onClick={() => void sendMessage(item)}>

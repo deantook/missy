@@ -13,10 +13,13 @@ export interface AppConfig {
   dida365McpUrl: string;
 }
 
-export interface HttpConfig extends AppConfig {
-  httpApiKey: string;
+export interface ServerConfig {
+  model: string;
+  dida365McpUrl: string;
+  databaseUrl: string;
   httpHost: string;
   httpPort: number;
+  nodeEnv: string;
 }
 
 function requireEnv(name: string): string {
@@ -65,14 +68,17 @@ export function loadConfig(options: { loadDotenv?: boolean } = {}): AppConfig {
 
 export function loadHttpConfig(
   options: { loadDotenv?: boolean } = {},
-): HttpConfig {
-  const base = loadConfig(options);
-  const httpApiKey = requireEnv("HTTP_API_KEY");
+): ServerConfig {
+  if (options.loadDotenv !== false) loadDotenv();
+  const model = requireEnv("MODEL");
+  assertProviderKey(model);
+  const dida365McpUrl = process.env.DIDA365_MCP_URL?.trim() || "https://mcp.dida365.com";
+  const databaseUrl = process.env.DATABASE_URL?.trim() || "postgresql://dean:postgres@localhost:5432/missy";
   const httpHost = process.env.HTTP_HOST?.trim() || "127.0.0.1";
   const rawPort = process.env.HTTP_PORT?.trim() || "3000";
   const httpPort = Number(rawPort);
   if (!Number.isInteger(httpPort) || httpPort < 1 || httpPort > 65535) {
     throw new ConfigError("HTTP_PORT 必须是 1 到 65535 之间的整数。");
   }
-  return { ...base, httpApiKey, httpHost, httpPort };
+  return { model, dida365McpUrl, databaseUrl, httpHost, httpPort, nodeEnv: process.env.NODE_ENV?.trim() || "development" };
 }

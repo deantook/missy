@@ -58,12 +58,13 @@ describe("loadConfig", () => {
     process.env.MODEL = "openai:gpt-4.1";
     process.env.OPENAI_API_KEY = "sk-test";
     process.env.DIDA365_TOKEN = "token-abc";
-    process.env.HTTP_API_KEY = "http-secret";
+    process.env.DATABASE_URL = "postgresql://test:test@localhost/test";
     delete process.env.HTTP_HOST;
     delete process.env.HTTP_PORT;
     const defaults = loadHttpConfig({ loadDotenv: false });
     expect(defaults.httpHost).toBe("127.0.0.1");
     expect(defaults.httpPort).toBe(3000);
+    expect(defaults.databaseUrl).toBe("postgresql://test:test@localhost/test");
 
     process.env.HTTP_HOST = "0.0.0.0";
     process.env.HTTP_PORT = "8080";
@@ -72,13 +73,12 @@ describe("loadConfig", () => {
     expect(custom.httpPort).toBe(8080);
   });
 
-  it("requires HTTP_API_KEY and validates HTTP_PORT", () => {
+  it("does not require HTTP_API_KEY or DIDA token for HTTP and validates HTTP_PORT", () => {
     process.env.MODEL = "openai:gpt-4.1";
     process.env.OPENAI_API_KEY = "sk-test";
-    process.env.DIDA365_TOKEN = "token-abc";
+    delete process.env.DIDA365_TOKEN;
     delete process.env.HTTP_API_KEY;
-    expect(() => loadHttpConfig({ loadDotenv: false })).toThrow(ConfigError);
-    process.env.HTTP_API_KEY = "secret";
+    expect(() => loadHttpConfig({ loadDotenv: false })).not.toThrow();
     process.env.HTTP_PORT = "70000";
     expect(() => loadHttpConfig({ loadDotenv: false })).toThrow(ConfigError);
   });

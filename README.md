@@ -1,76 +1,70 @@
-# mssiy — 滴答清单 Deep Agent 助手
+# Missy — 多用户滴答清单 AI 助手
 
-基于 [Deep Agents](https://docs.langchain.com/oss/javascript/deepagents/overview) 的终端任务助手，通过 MCP 连接 [mcp.dida365.com](https://mcp.dida365.com)。
+基于 Deep Agents、Dida365 MCP、Express、Vite 和 PostgreSQL 的多用户任务助手。每个用户拥有独立的 Dida MCP Token、会话历史与模型 Token 用量统计。
 
-## 要求
+## 功能
 
-- Node.js >= 20
-- 滴答清单 MCP Bearer Token
-- Anthropic 或 OpenAI API Key（项目已依赖 `@langchain/anthropic` 与 `@langchain/openai`）
+- 邮箱密码注册、登录、退出、资料修改、改密与账户注销
+- 用户级 Dida MCP Token 验证和隔离（按产品要求明文存于 `users` 表，API 仅返回脱敏尾号）
+- PostgreSQL 持久化会话和每轮成功/失败记录
+- 汇总每轮全部模型调用的输入、输出与总 Token，并维护会话累计值
+- 历史会话打开、自动命名、手动改名和删除
+- 删除类 MCP 操作单次授权
+- 生产环境由 Express 直接托管前端产物
 
-## 安装
+## 本地启动
+
+要求 Node.js 20+ 和 PostgreSQL。默认数据库连接为：
+
+```text
+postgresql://dean:postgres@localhost:5432/missy
+```
+
+安装并配置：
 
 ```bash
 npm install
 cp .env.example .env
-# 编辑 .env：填入 MODEL、对应 API Key、DIDA365_TOKEN
+# 配置 MODEL 和对应的 Provider API Key
+npm run db:migrate
 ```
 
-若改用其他 LangChain provider，请自行安装对应 `@langchain/<provider>` 包。
-
-## 启动
-
-```bash
-npm start
-```
-
-输入 `exit` / `quit` 或 Ctrl+C 退出。
-
-### HTTP 服务
-
-在 `.env` 中设置 `HTTP_API_KEY` 后启动独立服务（CLI 仍可继续使用）：
+开发时分别启动后端和前端：
 
 ```bash
 npm run serve
+npm run web
 ```
 
-默认监听 `127.0.0.1:3000`。健康检查为 `GET /health`；对话接口需要 Bearer 鉴权：
+访问 `http://127.0.0.1:5173`。注册后在账户设置中填写自己的 Dida MCP Token。
+
+生产运行：
 
 ```bash
-curl -X POST http://127.0.0.1:3000/v1/chat \
-  -H "Authorization: Bearer $HTTP_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"message":"今天有哪些待办？","sessionId":"demo"}'
+npm run web:build
+NODE_ENV=production npm run serve
 ```
 
-复用 `sessionId` 可延续上下文；省略时服务会生成并返回。删除默认不授权，只有当前请求明确传入 `"allowDelete": true` 时才会执行删除，授权不会延续到下一请求。
+访问 `http://127.0.0.1:3000`。
 
-## 示例对话
-
-- 「今天有哪些待办？」
-- 「创建一个明天下午 3 点的任务：写周报」
-- 「把刚才那个任务标为完成」
-- 「删除任务 xxx」（会提示确认）
-
-## 环境变量
+## 配置
 
 | 变量 | 必填 | 说明 |
-|------|------|------|
-| `MODEL` | 是 | 如 `anthropic:claude-sonnet-4-5`、`openai:gpt-4.1` |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | 按模型 | Provider key |
-| `DIDA365_TOKEN` | 是 | MCP Bearer Token |
+|---|---|---|
+| `MODEL` | 是 | 例如 `anthropic:claude-sonnet-4-5` 或 `openai:gpt-4.1` |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | 按模型 | 模型 Provider 密钥 |
+| `DATABASE_URL` | 否 | PostgreSQL 连接，默认使用本地 `missy` 数据库 |
 | `DIDA365_MCP_URL` | 否 | 默认 `https://mcp.dida365.com` |
-| `HTTP_API_KEY` | HTTP 必填 | `npm run serve` 的 Bearer 访问密钥 |
-| `HTTP_HOST` | 否 | 默认 `127.0.0.1` |
-| `HTTP_PORT` | 否 | 默认 `3000` |
+| `HTTP_HOST` / `HTTP_PORT` | 否 | 默认 `127.0.0.1:3000` |
+| `NODE_ENV` | 否 | `production` 时启用 Secure Cookie 并托管 `web/dist` |
+| `DIDA365_TOKEN` | CLI 必填 | 仅 `npm start` 的单用户 CLI 使用 |
 
-## 测试
+## 验证
 
 ```bash
 npm test
 npm run typecheck
+npm run web:build
 ```
 
-## 验收说明
-
-完整功能验收（查询今日待办、创建/完成任务、删除确认流程）需要配置真实凭据的 `.env` 文件。请勿将 `.env` 提交到版本库。
+测试默认使用本地 `missy` 数据库，也可通过 `TEST_DATABASE_URL` 指定测试库。测试数据使用唯一邮箱并在结束后清理。

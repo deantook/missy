@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDeleteInterruptOn } from "../src/agent.ts";
-import { createdProjectWithoutTasks, hasRenderableChoicePrompt, needsStructuredClarification, projectCreationNeedsVerification, successfulToolNames } from "../src/conversation.ts";
+import { createdProjectWithoutTasks, hasRenderableChoicePrompt, latestCreatedProjectId, needsStructuredClarification, projectCreationNeedsVerification, successfulToolNames } from "../src/conversation.ts";
 
 describe("buildDeleteInterruptOn", () => {
   it("maps tools whose names start with delete_", () => {
@@ -65,5 +65,13 @@ describe("project creation consistency", () => {
       ai([{ id: "v1", name: "get_project_with_undone_tasks" }]), tool("v1"),
     ] };
     expect(projectCreationNeedsVerification(verified)).toBe(false);
+  });
+
+  it("extracts the real project id from MCP tool content for a deterministic retry", () => {
+    const result = { messages: [
+      ai([{ id: "p1", name: "create_project" }]),
+      { tool_call_id: "p1", status: "success", content: [{ type: "text", text: '{"id":"project-123","name":"减脂计划"}' }], getType: () => "tool" },
+    ] };
+    expect(latestCreatedProjectId(result)).toBe("project-123");
   });
 });

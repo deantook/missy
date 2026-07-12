@@ -45,6 +45,57 @@ export function projectCreationNeedsVerification(result: { messages?: unknown })
   return !createdTasks || !names.includes("get_project_with_undone_tasks");
 }
 
+export function latestCreatedProjectId(result: { messages?: unknown }): string | undefined {
+  if (!Array.isArray(result.messages)) return undefined;
+  const createCallIds = new Set<string>();
+  for (const raw of result.messages) {
+    const message = raw as AgentMessage;
+    for (const call of message.tool_calls ?? []) {
+      if (call.id && call.name === "create_project") createCallIds.add(call.id);
+    }
+  }
+  let projectId: string | undefined;
+  for (const raw of result.messages) {
+    const message = raw as AgentMessage & { content?: unknown };
+    if (message.getType?.() !== "tool" || message.status === "error") continue;
+    const name = message.name ?? (message.tool_call_id && createCallIds.has(message.tool_call_id) ? "create_project" : undefined);
+    if (name !== "create_project") continue;
+    projectId = findProjectId(message.content) ?? projectId;
+  }
+  return projectId;
+}
+
+function findProjectId(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    try {
+      return findProjectId(JSON.parse(trimmed));
+    } catch {
+      const match = trimmed.match(/(?:project[_ ]?id|\"id\")\s*[:=]\s*[\"']?([\w-]+)/i);
+      return match?.[1];
+    }
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findProjectId(item);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of ["projectId", "project_id", "id"]) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+  for (const key of ["text", "content", "data", "project", "result"]) {
+    const found = findProjectId(record[key]);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 export function hasRenderableChoicePrompt(message: string): boolean {
   const match = message.match(/(?:^|\n)(?:```choice_prompt[ \t]*\r?\n([\s\S]*?)\r?\n```|<choice_prompt>[ \t]*\r?\n([\s\S]*?)\r?\n<\/choice_prompt>)/);
   if (!match) return false;

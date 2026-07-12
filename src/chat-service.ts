@@ -1,5 +1,5 @@
 import type { Database } from "./db.ts";
-import { AgentRunError, runAgentTurn, type StoredMessage, type UserMcpManager } from "./agent-runtime.ts";
+import { AgentRunError, runAgentTurn, type DebugSink, type StoredMessage, type UserMcpManager } from "./agent-runtime.ts";
 import type { TokenUsage } from "./usage.ts";
 
 export type RunTurn = typeof runAgentTurn;
@@ -17,6 +17,7 @@ type PendingTurn = {
 type StreamCallbacks = {
   onStart?: (turn: PendingTurn) => void | Promise<void>;
   onDelta?: (delta: string, reset?: boolean) => void | Promise<void>;
+  onDebug?: DebugSink;
 };
 
 export class ChatService {
@@ -61,11 +62,12 @@ export class ChatService {
         { role: "user" as const, content: row.user_content },
         { role: "assistant" as const, content: row.assistant_content },
       ]);
-      const tools = await this.mcp.toolsFor(params.userId, params.didaToken);
+      const tools = await this.mcp.toolsFor(params.userId, params.didaToken, params.onDebug);
       const result = await this.runner({
         model: this.model, tools, history, message: params.message,
         conversationId: params.conversationId, allowDelete: params.allowDelete,
         onToken: params.onDelta,
+        onDebug: params.onDebug,
       });
       usage = result.usage;
       await this.complete(turnId, params.conversationId, params.message, result.message, usage);

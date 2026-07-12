@@ -20,6 +20,7 @@ export interface ServerConfig {
   httpHost: string;
   httpPort: number;
   nodeEnv: string;
+  corsOrigins: string[];
 }
 
 function requireEnv(name: string): string {
@@ -80,5 +81,19 @@ export function loadHttpConfig(
   if (!Number.isInteger(httpPort) || httpPort < 1 || httpPort > 65535) {
     throw new ConfigError("HTTP_PORT 必须是 1 到 65535 之间的整数。");
   }
-  return { model, dida365McpUrl, databaseUrl, httpHost, httpPort, nodeEnv: process.env.NODE_ENV?.trim() || "development" };
+  const defaultDevOrigins = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+  ];
+  const nodeEnv = process.env.NODE_ENV?.trim() || "development";
+  const rawCors = process.env.CORS_ORIGINS?.trim();
+  const corsOrigins = rawCors
+    ? rawCors.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : nodeEnv === "production"
+      ? []
+      : defaultDevOrigins;
+  return { model, dida365McpUrl, databaseUrl, httpHost, httpPort, nodeEnv, corsOrigins };
 }

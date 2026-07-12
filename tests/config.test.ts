@@ -82,4 +82,23 @@ describe("loadConfig", () => {
     process.env.HTTP_PORT = "70000";
     expect(() => loadHttpConfig({ loadDotenv: false })).toThrow(ConfigError);
   });
+
+  it("parses CORS_ORIGINS and defaults for development", () => {
+    process.env.MODEL = "openai:gpt-4.1";
+    process.env.OPENAI_API_KEY = "sk-test";
+    delete process.env.CORS_ORIGINS;
+    process.env.NODE_ENV = "development";
+    const dev = loadHttpConfig({ loadDotenv: false });
+    expect(dev.corsOrigins).toContain("http://127.0.0.1:5173");
+    expect(dev.corsOrigins).toContain("tauri://localhost");
+
+    process.env.NODE_ENV = "production";
+    expect(loadHttpConfig({ loadDotenv: false }).corsOrigins).toEqual([]);
+
+    process.env.CORS_ORIGINS = "https://app.example.com, https://api.example.com ";
+    expect(loadHttpConfig({ loadDotenv: false }).corsOrigins).toEqual([
+      "https://app.example.com",
+      "https://api.example.com",
+    ]);
+  });
 });

@@ -330,3 +330,128 @@
   .landing-footer{gap:20px}.landing-footer p{text-align:right}
   .auth-home-link{top:18px;left:18px}.auth-brand{display:none}.auth-page{grid-template-columns:1fr}.auth-card{margin-top:90px;margin-bottom:40px}
 }
+
+/* Theme switcher and dark appearance. */
+.theme-toggle{position:relative;flex:none}
+.theme-toggle .theme-icon{position:absolute;width:18px;height:18px;transition:opacity .16s ease,transform .2s ease}
+.theme-icon-sun{opacity:0;transform:rotate(-35deg) scale(.7)}
+.theme-icon-moon{opacity:1;transform:rotate(0) scale(1)}
+.auth-theme-toggle{position:absolute;z-index:3;top:22px;right:26px}
+.landing-actions .theme-toggle{padding:0;width:34px;height:34px}
+.chat-header .header-actions,.settings-header .header-actions{width:auto;gap:4px}
+
+html[data-theme="dark"] .theme-icon-sun{opacity:1;transform:rotate(0) scale(1)}
+html[data-theme="dark"] .theme-icon-moon{opacity:0;transform:rotate(35deg) scale(.7)}
+html[data-theme="dark"],html[data-theme="dark"] body{background:#171816;color:#e7e7e2}
+html[data-theme="dark"] .app-shell{background:#1b1c19}
+html[data-theme="dark"] .sidebar{border-color:#30312d;background:#20211e}
+html[data-theme="dark"] .logo,html[data-theme="dark"] .welcome h1{color:#f1f1ec}
+html[data-theme="dark"] .new-chat{border-color:#3b3c37;background:#292a27;color:#e1e1dc}
+html[data-theme="dark"] .new-chat:hover,html[data-theme="dark"] .new-chat-icon:hover{background:#30312d;color:#fff}
+html[data-theme="dark"] .history-header>p,html[data-theme="dark"] .conversation-item small{color:#797a74}
+html[data-theme="dark"] .conversation-item{color:#b9bab4}
+html[data-theme="dark"] .conversation-item:hover{background:#292a27}
+html[data-theme="dark"] .conversation-item.active{background:#30312c;color:#f08a79;box-shadow:0 3px 14px #0004}
+html[data-theme="dark"] .context-menu{border-color:#3a3b36;background:#292a27;box-shadow:0 15px 40px #0008}
+html[data-theme="dark"] .context-menu button{color:#deded8}
+html[data-theme="dark"] .context-menu button:hover{background:#353631}
+html[data-theme="dark"] .context-menu button.danger{color:#f18a79}
+html[data-theme="dark"] .context-menu button.danger:hover{background:#422824}
+html[data-theme="dark"] .chat-header,html[data-theme="dark"] .settings-header{border-color:#33342f;background:#1d1e1be6}
+html[data-theme="dark"] .chat-header h2,html[data-theme="dark"] .settings-header h2{color:#e8e8e3}
+html[data-theme="dark"] .icon-button,html[data-theme="dark"] .back-link{color:#a7a8a1}
+html[data-theme="dark"] .icon-button:hover,html[data-theme="dark"] .back-link:hover{background:#30312d;color:#fff}
+html[data-theme="dark"] .sidebar-edge-toggle{border-color:#3b3c37;background:#252623;color:#a7a8a1;box-shadow:0 2px 8px #0005}
+html[data-theme="dark"] .sidebar-edge-toggle:hover{border-color:#4a4b45;background:#30312d;color:#fff}
+html[data-theme="dark"] .welcome p,html[data-theme="dark"] .hint,html[data-theme="dark"] .usage{color:#85867f}
+html[data-theme="dark"] .suggestions button{border-color:#3b3c37;background:#252623;color:#bfc0ba}
+html[data-theme="dark"] .suggestions button:hover{border-color:#df604c;color:#f08a79}
+html[data-theme="dark"] .message>div>p,html[data-theme="dark"] .message-content>p{color:#8e8f88}
+html[data-theme="dark"] .user .avatar,html[data-theme="dark"] .user .bubble{border-color:#484943;background:#383934;color:#fff}
+html[data-theme="dark"] .message.assistant .bubble{color:#d8d9d3}
+html[data-theme="dark"] .message.assistant .bubble.failed{border-color:#713d35;background:#352321;color:#f2a396}
+html[data-theme="dark"] .feedback,html[data-theme="dark"] .message.assistant .usage{border-color:#33342f}
+html[data-theme="dark"] .feedback-btn{color:#85867f}
+html[data-theme="dark"] .feedback-btn:hover{background:#30312d;color:#d2d3cd}
+html[data-theme="dark"] .feedback-btn.active{background:#452722;color:#f08a79}
+html[data-theme="dark"] .composer{border-color:#3a3b36;background:#252623;box-shadow:0 15px 45px #0004}
+html[data-theme="dark"] .composer textarea{color:#ecece7}
+html[data-theme="dark"] .composer textarea::placeholder{color:#777871}
+html[data-theme="dark"] .token-banner{border-color:#704138;background:#352521;color:#f0c1b8}
+html[data-theme="dark"] .token-banner small{color:#b58b83}
+html[data-theme="dark"] .markdown{color:#d8d9d3}
+html[data-theme="dark"] .markdown h1,html[data-theme="dark"] .markdown h2,html[data-theme="dark"] .markdown h3,html[data-theme="dark"] .markdown h4{color:#f0f0eb}
+html[data-theme="dark"] .markdown blockquote{color:#aaa9a3}
+html[data-theme="dark"] .markdown code{background:#30312d;color:#f0c2ba}
+html[data-theme="dark"] .markdown pre{background:#111210;color:#e9e9e4;border:1px solid #33342f}
+html[data-theme="dark"] .markdown th,html[data-theme="dark"] .markdown td{border-color:#3b3c37}
+html[data-theme="dark"] .markdown th{background:#292a27}
+html[data-theme="dark"] .markdown tr:nth-child(even) td{background:#222320}
+html[data-theme="dark"] .markdown hr{border-color:#383934}
+
+html[data-theme="dark"] .settings-intro h1{color:#efefe9}
+html[data-theme="dark"] .settings-intro>p:last-child{color:#92938c}
+html[data-theme="dark"] .account-summary,html[data-theme="dark"] .settings-grid .settings-section{border-color:#353631;background:#242522;box-shadow:0 8px 28px #0003}
+html[data-theme="dark"] .account-summary-avatar{background:#df604c}
+html[data-theme="dark"] .account-summary span,html[data-theme="dark"] .section-heading p,html[data-theme="dark"] .account-actions p,html[data-theme="dark"] .conversation-actions p{color:#8f9089}
+html[data-theme="dark"] .account-summary-status{background:#24362a;color:#70b284}
+html[data-theme="dark"] .section-icon{background:#33342f;color:#c0c1bb}
+html[data-theme="dark"] .section-icon.token-icon{background:#452722;color:#f08a79}
+html[data-theme="dark"] .settings-grid .settings-section label{color:#aaa9a3}
+html[data-theme="dark"] .auth-card input,html[data-theme="dark"] .settings-section input{border-color:#41423d;background:#1d1e1b;color:#e7e7e2}
+html[data-theme="dark"] input::placeholder{color:#6f706a!important}
+html[data-theme="dark"] .section-actions{border-color:#353631}
+html[data-theme="dark"] .secondary{border-color:#444540;background:#30312d;color:#e1e1dc}
+html[data-theme="dark"] .secondary:hover{background:#383934}
+html[data-theme="dark"] .danger-button{border-color:#683a33;background:#3b2623;color:#f09586}
+html[data-theme="dark"] .text-button{color:#b1b2ab}
+html[data-theme="dark"] .token-status{background:#33342f;color:#999a93}
+html[data-theme="dark"] .token-status.ok{background:#24362a;color:#70b284}
+
+html[data-theme="dark"] .auth-page{background:radial-gradient(circle at 15% 10%,#292a26 0,transparent 42%),#1b1c19}
+html[data-theme="dark"] .auth-home-link{color:#ededE8}
+html[data-theme="dark"] .auth-brand>p:last-child{color:#a2a39c}
+html[data-theme="dark"] .auth-card{border-color:#383934;background:#242522;box-shadow:0 30px 80px #0006}
+html[data-theme="dark"] .auth-card>div>p:last-child,html[data-theme="dark"] .auth-switch{color:#92938c}
+html[data-theme="dark"] .auth-card label{color:#aaa9a3}
+
+html[data-theme="dark"] .landing-page{background:#1b1c19;color:#e9e9e4}
+html[data-theme="dark"] .landing-header{border-color:#34352f}
+html[data-theme="dark"] .landing-logo{color:#f0f0eb}
+html[data-theme="dark"] .landing-header nav a{color:#a4a59e}
+html[data-theme="dark"] .landing-login,html[data-theme="dark"] .hero-secondary{color:#c3c4bd}
+html[data-theme="dark"] .hero-description{color:#a5a69f}
+html[data-theme="dark"] .hero-badge{border-color:#3b3c37;background:#252623;color:#b3b4ad;box-shadow:0 5px 20px #0003}
+html[data-theme="dark"] .hero-note{color:#85867f}
+html[data-theme="dark"] .preview-window{border-color:#3c3d38;background:#242522;box-shadow:0 38px 90px #0008}
+html[data-theme="dark"] .preview-sidebar{background:#20211e}
+html[data-theme="dark"] .preview-sidebar>i{background:linear-gradient(90deg,#3a3b36 52%,transparent 52%)}
+html[data-theme="dark"] .preview-sidebar>i.active{background:linear-gradient(90deg,#343530 75%,transparent 75%);box-shadow:0 3px 12px #0004}
+html[data-theme="dark"] .preview-sidebar>i.short{background:linear-gradient(90deg,#3a3b36 38%,transparent 38%)}
+html[data-theme="dark"] .preview-chat{background:#1d1e1b}
+html[data-theme="dark"] .preview-top{border-color:#34352f;color:#c6c7c0}
+html[data-theme="dark"] .preview-top i{background:#33342f}
+html[data-theme="dark"] .preview-reply{color:#d3d4ce}
+html[data-theme="dark"] .preview-reply p,html[data-theme="dark"] .preview-composer{border-color:#3b3c37;background:#292a27;color:#a4a59e}
+html[data-theme="dark"] .floating-card{border-color:#41423d;background:#292a27;box-shadow:0 18px 45px #0008}
+html[data-theme="dark"] .floating-task>span{background:#24362a;color:#70b284}
+html[data-theme="dark"] .floating-task small{color:#999a93}
+
+html[data-theme="dark"] .confirm-dialog,html[data-theme="dark"] .choice-dialog{border-color:#3c3d38;background:#242522;box-shadow:0 28px 90px #000a}
+html[data-theme="dark"] .confirm-dialog-copy h3{color:#eeeeea}
+html[data-theme="dark"] .confirm-dialog-copy p{color:#aaa9a3}
+html[data-theme="dark"] .confirm-dialog-actions,html[data-theme="dark"] .choice-dialog-actions{border-color:#3a3b36}
+html[data-theme="dark"] .confirm-cancel{border-color:#454640;background:#30312d;color:#d6d7d1}
+html[data-theme="dark"] .choice-dialog-close:hover{background:#33342f;color:#fff}
+html[data-theme="dark"] .choice-option{border-color:#41423d;background:#292a27}
+html[data-theme="dark"] .choice-option:hover{border-color:#8d594f}
+html[data-theme="dark"] .choice-option:has(input:checked){border-color:#df604c;background:#3b2723}
+html[data-theme="dark"] .choice-option small{color:#999a93}
+html[data-theme="dark"] .choice-control{border-color:#6b6c65;background:#1d1e1b}
+html[data-theme="dark"] .choice-option input:checked+.choice-control{box-shadow:inset 0 0 0 4px #242522}
+html[data-theme="dark"] .choice-input-wrap input,html[data-theme="dark"] .choice-other input{border-color:#41423d;background:#1d1e1b;color:#e7e7e2}
+html[data-theme="dark"] .choice-field-options span{border-color:#41423d;background:#292a27;color:#bebfb8}
+html[data-theme="dark"] .choice-field-options input:checked+span{border-color:#df604c;background:#452722;color:#f09586}
+html[data-theme="dark"] .toast{background:#ecece7;color:#22231f}
+
+@media(max-width:680px){.auth-theme-toggle{top:16px;right:16px}.landing-actions .theme-toggle{margin-right:2px}}

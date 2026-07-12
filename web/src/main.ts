@@ -29,6 +29,35 @@ let turns: Turn[] = [];
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 const authTokenStorageKey = "missy.authToken";
+const themeStorageKey = "missy.theme";
+type Theme = "light" | "dark";
+
+function currentTheme(): Theme {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
+
+function themeToggle(): string {
+  const dark = currentTheme() === "dark";
+  return `<button class="theme-toggle icon-button" type="button" title="切换到${dark ? "浅色" : "深色"}模式" aria-label="切换到${dark ? "浅色" : "深色"}模式" aria-pressed="${dark}">
+    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/></svg>
+    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5 8.5 8.5 0 1 0 20.5 14.4Z"/></svg>
+  </button>`;
+}
+
+function setTheme(theme: Theme, persist = true): void {
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#171816" : "#f5f4ef");
+  document.querySelectorAll<HTMLButtonElement>(".theme-toggle").forEach((button) => {
+    const dark = theme === "dark";
+    button.setAttribute("aria-pressed", String(dark));
+    button.setAttribute("aria-label", `切换到${dark ? "浅色" : "深色"}模式`);
+    button.title = `切换到${dark ? "浅色" : "深色"}模式`;
+  });
+  if (persist) {
+    try { localStorage.setItem(themeStorageKey, theme); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
+  }
+}
 
 function apiUrl(path: string): string {
   return `${API_BASE}${path}`;
@@ -77,6 +106,10 @@ function currentPath(): string {
   return window.location.pathname.replace(/\/+$/, "") || "/";
 }
 
+function isDesktopShell(): boolean {
+  return "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
+}
+
 function navigate(path: string): void {
   if (currentPath() === path) {
     route();
@@ -90,6 +123,11 @@ function route(): void {
   if (!user) {
     if (currentPath() === "/login" || currentPath() === "/register") {
       renderAuth(currentPath() === "/register" ? "register" : "login");
+      return;
+    }
+    if (isDesktopShell()) {
+      history.replaceState(null, "", "/login");
+      renderAuth("login");
       return;
     }
     if (currentPath() !== "/") history.replaceState(null, "", "/");
@@ -218,7 +256,7 @@ function renderHome(): void {
     <header class="landing-header">
       <button class="landing-logo" type="button" data-route="/" aria-label="Missy 首页"><span>✦</span><strong>Missy</strong></button>
       <nav aria-label="主页导航"><a href="#features">功能</a><a href="#how-it-works">使用方式</a></nav>
-      <div class="landing-actions"><button class="landing-login" type="button" data-route="/login">登录</button><button class="primary" type="button" data-route="/register">免费开始</button></div>
+      <div class="landing-actions">${themeToggle()}<button class="landing-login" type="button" data-route="/login">登录</button><button class="primary" type="button" data-route="/register">免费开始</button></div>
     </header>
     <section class="landing-hero">
       <div class="hero-copy">
@@ -263,8 +301,11 @@ function renderHome(): void {
 
 function renderAuth(mode: "login" | "register" = "login"): void {
   const registering = mode === "register";
-  root.innerHTML = `<main class="auth-page">
-    <button id="back-home" class="auth-home-link" type="button" aria-label="返回主页"><span>✦</span><strong>Missy</strong></button>
+  const homeControl = isDesktopShell()
+    ? `<div class="auth-home-link" aria-hidden="true"><span>✦</span><strong>Missy</strong></div>`
+    : `<button id="back-home" class="auth-home-link" type="button" aria-label="返回主页"><span>✦</span><strong>Missy</strong></button>`;
+  root.innerHTML = `<main class="auth-page"><div class="auth-theme-toggle">${themeToggle()}</div>
+    ${homeControl}
     <section class="auth-brand"><div class="brand-mark">✦</div><p class="eyebrow">DIDA365 · DEEP AGENT</p><h1>让计划，真正<br>开始行动。</h1><p>连接你的滴答清单，用自然语言安排、查询和完成每一天。</p></section>
     <section class="auth-card">
       <div><p class="eyebrow">${registering ? "CREATE ACCOUNT" : "WELCOME BACK"}</p><h2>${registering ? "创建你的账户" : "登录 Missy"}</h2><p>${registering ? "几秒钟即可开始使用。" : "继续管理你的清单与日程。"}</p></div>
@@ -276,7 +317,7 @@ function renderAuth(mode: "login" | "register" = "login"): void {
       </form>
       <p class="auth-switch">${registering ? "已有账户？" : "还没有账户？"}<button id="switch-auth" type="button">${registering ? "直接登录" : "创建账户"}</button></p>
     </section></main>`;
-  document.querySelector("#back-home")!.addEventListener("click", () => navigate("/"));
+  document.querySelector("#back-home")?.addEventListener("click", () => navigate("/"));
   document.querySelector("#switch-auth")!.addEventListener("click", () => navigate(registering ? "/login" : "/register"));
   document.querySelector<HTMLFormElement>("#auth-form")!.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -430,7 +471,7 @@ function renderApp(): void {
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
     <main class="chat-pane">
-      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${debugEnabled ? `<button id="chat-debug-badge" class="chat-debug-badge" type="button" title="${debugPanelCollapsed ? "展开调试面板" : "折叠调试面板"}" aria-pressed="${!debugPanelCollapsed}">DEBUG</button>` : ""}${profileAvatar()}</div></header>
+      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${debugEnabled ? `<button id="chat-debug-badge" class="chat-debug-badge" type="button" title="${debugPanelCollapsed ? "展开调试面板" : "折叠调试面板"}" aria-pressed="${!debugPanelCollapsed}">DEBUG</button>` : ""}${themeToggle()}${profileAvatar()}</div></header>
       <section id="messages" class="messages">${renderMessages()}</section>
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
@@ -694,8 +735,7 @@ async function sendMessage(message: string): Promise<void> {
     await loadConversations(); active = conversations.find((item) => item.id === conversationId) ?? active;
   } catch (error) {
     if (!readAuthToken()) {
-      history.replaceState(null, "", "/");
-      renderHome();
+      route();
       return;
     }
     optimistic.status = "failed"; optimistic.errorMessage = error instanceof Error ? error.message : String(error);
@@ -798,7 +838,7 @@ function renderSettingsPage(): void {
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
     <main class="settings-pane">
-      <header class="settings-header">${headerSidebarOpen()}<div class="header-actions"><button id="back-to-chat" class="back-link" type="button" title="关闭设置" aria-label="关闭设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></header>
+      <header class="settings-header">${headerSidebarOpen()}<div class="header-actions">${themeToggle()}<button id="back-to-chat" class="back-link" type="button" title="关闭设置" aria-label="关闭设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></header>
       <div class="settings-content"><div class="settings-intro"><p class="eyebrow">ACCOUNT SETTINGS</p><h1>账户设置</h1><p>管理你的个人资料、服务连接与账户安全。</p></div>${renderSettingsContent()}</div>
     </main></div>`;
   renderConversationList();
@@ -880,22 +920,23 @@ function bindSettingsForms(): void {
   document.querySelector("#logout")!.addEventListener("click", async () => {
     try { await api<void>("/v1/auth/logout", { method: "POST" }); } catch { /* always clear local session */ }
     clearSessionState();
-    history.replaceState(null, "", "/");
-    renderHome();
+    route();
   });
   document.querySelector("#delete-account")!.addEventListener("click", async () => {
     const password = prompt("注销会永久删除所有会话。请输入当前密码确认："); if (!password) return;
     try {
       await api<void>("/v1/me", { method: "DELETE", body: JSON.stringify({ password }) });
       clearSessionState();
-      history.replaceState(null, "", "/");
-      renderHome();
+      route();
     }
     catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
   });
 }
 
 async function bootstrap(): Promise<void> {
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest(".theme-toggle")) setTheme(currentTheme() === "dark" ? "light" : "dark");
+  });
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element) || !event.target.closest(".context-menu")) hideContextMenu();
   });

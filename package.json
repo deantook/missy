@@ -11,6 +11,8 @@
     "web": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -33,6 +35,7 @@
     "pg": "^8.22.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
     "@types/pg": "^8.20.0",

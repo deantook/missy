@@ -32,6 +32,13 @@ describe("debug-events", () => {
     });
     expect(thinking).toEqual([{ kind: "thinking", delta: "先查清单" }]);
 
+    const deepseek = debugEventsFromStreamMessage({
+      getType: () => "ai",
+      content: "",
+      additional_kwargs: { reasoning_content: "先查项目列表" },
+    });
+    expect(deepseek).toEqual([{ kind: "thinking", delta: "先查项目列表" }]);
+
     const call = debugEventsFromStreamMessage({
       getType: () => "ai",
       tool_calls: [{ id: "c1", name: "list_tasks", args: { date: "today" } }],

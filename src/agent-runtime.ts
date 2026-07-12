@@ -112,7 +112,16 @@ export async function runAgentTurn(params: {
           continue;
         }
         if (mode !== "messages" || !Array.isArray(payload)) continue;
-        const message = payload[0] as { id?: string; content?: unknown; getType?: () => string };
+        const message = payload[0] as {
+          id?: string;
+          content?: unknown;
+          additional_kwargs?: Record<string, unknown>;
+          tool_calls?: Array<{ id?: string; name?: string; args?: unknown }>;
+          name?: string;
+          tool_call_id?: string;
+          status?: string;
+          getType?: () => string;
+        };
         for (const event of debugEventsFromStreamMessage(message)) {
           await params.onDebug?.(event);
         }

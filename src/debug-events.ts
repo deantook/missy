@@ -42,30 +42,43 @@ export function serializeDebugError(
 type StreamMessage = {
   getType?: () => string;
   content?: unknown;
+  additional_kwargs?: Record<string, unknown>;
   tool_calls?: Array<{ id?: string; name?: string; args?: unknown }>;
   name?: string;
   tool_call_id?: string;
   status?: string;
 };
 
-function thinkingDelta(content: unknown): string {
+function thinkingFromContent(content: unknown): string {
   if (typeof content === "string") return "";
   if (!Array.isArray(content)) return "";
   return content.map((part) => {
     if (!part || typeof part !== "object") return "";
     const record = part as Record<string, unknown>;
-    if (record.type === "reasoning" || record.type === "thinking") {
-      return String(record.reasoning ?? record.thinking ?? record.text ?? "");
+    if (record.type === "reasoning" || record.type === "thinking" || record.type === "reasoning_content") {
+      return String(record.reasoning ?? record.thinking ?? record.reasoning_content ?? record.text ?? "");
     }
     return "";
   }).join("");
+}
+
+function thinkingFromAdditionalKwargs(kwargs: Record<string, unknown> | undefined): string {
+  if (!kwargs) return "";
+  const value = kwargs.reasoning_content ?? kwargs.reasoning;
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  return String(value);
+}
+
+function thinkingDelta(message: StreamMessage): string {
+  return thinkingFromContent(message.content) || thinkingFromAdditionalKwargs(message.additional_kwargs);
 }
 
 export function debugEventsFromStreamMessage(message: StreamMessage): DebugEvent[] {
   const type = message.getType?.();
   const events: DebugEvent[] = [];
   if (type === "ai") {
-    const delta = thinkingDelta(message.content);
+    const delta = thinkingDelta(message);
     if (delta) events.push({ kind: "thinking", delta });
     for (const call of message.tool_calls ?? []) {
       if (!call.name) continue;

@@ -1,6 +1,6 @@
 import { createDeepAgent } from "deepagents";
 import { MemorySaver } from "@langchain/langgraph";
-import { SYSTEM_PROMPT } from "./prompts.ts";
+import { buildSystemPrompt } from "./prompts.ts";
 
 export type NamedTool = { name?: string };
 
@@ -25,6 +25,7 @@ export function buildDeleteInterruptOn(
 export function createTaskAgent(params: {
   model: string;
   tools: readonly NamedTool[];
+  now?: Date;
 }) {
   const interruptOn = buildDeleteInterruptOn(params.tools);
   const checkpointer = new MemorySaver();
@@ -32,7 +33,7 @@ export function createTaskAgent(params: {
   const agent = createDeepAgent({
     model: params.model,
     tools: params.tools as never[],
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: buildSystemPrompt(params.now),
     interruptOn,
     checkpointer,
   });

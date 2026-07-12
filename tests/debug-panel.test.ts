@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DebugTimeline, type ClientDebugEvent } from "../web/src/debug-panel.ts";
+import { DebugTimeline, type ClientDebugEvent } from "../web-vanilla/src/debug-panel.ts";
 
 describe("DebugTimeline", () => {
   it("clears on start and appends events", () => {

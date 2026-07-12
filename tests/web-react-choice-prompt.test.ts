@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChoicePrompt, visibleAssistantContent } from "../web-react/src/lib/choice-prompt.ts";
+import { parseChoicePrompt, visibleAssistantContent } from "../web/src/lib/choice-prompt.ts";
 
 describe("choice prompt protocol", () => {
   const content = `需要先确认你的目标岗位。\n\n\`\`\`choice_prompt

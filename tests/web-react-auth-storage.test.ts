@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it } from "vitest";
-import { clearAuthToken, readAuthToken, writeAuthToken } from "../web-react/src/api/auth-storage.ts";
+import { clearAuthToken, readAuthToken, writeAuthToken } from "../web/src/api/auth-storage.ts";
 
 afterEach(() => clearAuthToken());
 

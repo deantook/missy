@@ -3,7 +3,7 @@ import {
   validatePasswordSettings,
   validateProfileSettings,
   validateTokenSettings,
-} from "../web-react/src/components/settings/validation.ts";
+} from "../web/src/components/settings/validation.ts";
 
 describe("web-react settings validation", () => {
   it("matches vanilla profile validation messages", () => {

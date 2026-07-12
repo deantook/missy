@@ -90,6 +90,7 @@ describe("loadConfig", () => {
     process.env.NODE_ENV = "development";
     const dev = loadHttpConfig({ loadDotenv: false });
     expect(dev.corsOrigins).toContain("http://127.0.0.1:5173");
+    expect(dev.corsOrigins).toContain("http://127.0.0.1:5174");
     expect(dev.corsOrigins).toContain("tauri://localhost");
 
     process.env.NODE_ENV = "production";

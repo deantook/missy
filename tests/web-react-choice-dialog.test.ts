@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ChoiceField } from "../web-react/src/lib/choice-prompt.ts";
-import { buildFormChoiceMessage, buildSelectionChoiceMessage } from "../web-react/src/lib/choice-dialog-message.ts";
+import type { ChoiceField } from "../web/src/lib/choice-prompt.ts";
+import { buildFormChoiceMessage, buildSelectionChoiceMessage } from "../web/src/lib/choice-dialog-message.ts";
 
 describe("web-react ChoiceDialog message assembly", () => {
   it("assembles selection answers like the vanilla dialog", () => {

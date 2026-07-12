@@ -11,13 +11,13 @@
     "web": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",
-    "web:react": "vite --config web-react/vite.config.ts",
-    "web:react:build": "vite build --config web-react/vite.config.ts",
-    "web:react:preview": "vite preview --config web-react/vite.config.ts",
+    "web:vanilla": "vite --config web-vanilla/vite.config.ts",
+    "web:vanilla:build": "vite build --config web-vanilla/vite.config.ts",
+    "web:vanilla:preview": "vite preview --config web-vanilla/vite.config.ts",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p web-react/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web/tsconfig.json"
   },
   "engines": {
     "node": ">=20"

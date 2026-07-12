@@ -16,6 +16,38 @@ let active: Conversation | null = null;
 let turns: Turn[] = [];
 let pending = false;
 let authMode: "login" | "register" = "login";
+const sidebarStorageKey = "missy.sidebarCollapsed";
+let sidebarCollapsed = (() => {
+  try { return localStorage.getItem(sidebarStorageKey) === "true"; }
+  catch { return false; }
+})();
+
+function currentPath(): string {
+  return window.location.pathname.replace(/\/+$/, "") || "/";
+}
+
+function navigate(path: string): void {
+  if (currentPath() === path) {
+    route();
+    return;
+  }
+  history.pushState(null, "", path);
+  route();
+}
+
+function route(): void {
+  if (!user) {
+    if (currentPath() !== "/") history.replaceState(null, "", "/");
+    renderAuth();
+    return;
+  }
+  if (currentPath() === "/settings") {
+    renderSettingsPage();
+    return;
+  }
+  if (currentPath() !== "/") history.replaceState(null, "", "/");
+  renderApp();
+}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]!);
@@ -72,24 +104,55 @@ function renderAuth(): void {
     button.disabled = true;
     try {
       const result = await api<{ user: User }>(`/v1/auth/${registering ? "register" : "login"}`, { method: "POST", body: JSON.stringify(data) });
-      user = result.user; await loadConversations(); renderApp();
+      user = result.user;
+      await loadConversations();
+      history.replaceState(null, "", "/");
+      renderApp();
     } catch (error) {
       document.querySelector("#auth-error")!.textContent = error instanceof Error ? error.message : String(error);
     } finally { button.disabled = false; }
   });
 }
 
+function renderSidebar(activePage: "chat" | "settings" = "chat"): string {
+  if (!user) return "";
+  return `<aside class="sidebar">
+    <div class="logo"><span>✦</span><strong>Missy</strong></div>
+    <button id="new-chat" class="new-chat" type="button"><span>＋</span> 新建对话</button>
+    <nav class="history"><p>最近对话</p><div id="conversation-list"></div></nav>
+    <button id="profile-button" class="profile ${activePage === "settings" ? "active" : ""}" type="button"><span>${escapeHtml(user.displayName.slice(0, 1).toUpperCase())}</span><div><strong>${escapeHtml(user.displayName)}</strong><small>${escapeHtml(user.email)}</small></div><b>•••</b></button>
+  </aside>`;
+}
+
+function appShellClass(): string {
+  return `app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`;
+}
+
+function sidebarToggle(): string {
+  return `<button id="sidebar-toggle" class="icon-button" type="button" title="显示或隐藏对话历史" aria-label="显示或隐藏对话历史" aria-pressed="${sidebarCollapsed}">☰</button>`;
+}
+
+function bindSidebarToggle(): void {
+  document.querySelector("#sidebar-toggle")!.addEventListener("click", () => {
+    const sidebar = document.querySelector(".sidebar")!;
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      const open = sidebar.classList.toggle("open");
+      document.querySelector("#sidebar-toggle")!.setAttribute("aria-expanded", String(open));
+      return;
+    }
+    sidebarCollapsed = !sidebarCollapsed;
+    document.querySelector(".app-shell")!.classList.toggle("sidebar-collapsed", sidebarCollapsed);
+    document.querySelector("#sidebar-toggle")!.setAttribute("aria-pressed", String(sidebarCollapsed));
+    try { localStorage.setItem(sidebarStorageKey, String(sidebarCollapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
+  });
+}
+
 function renderApp(): void {
   if (!user) return renderAuth();
-  root.innerHTML = `<div class="app-shell">
-    <aside class="sidebar">
-      <div class="logo"><span>✦</span><strong>Missy</strong></div>
-      <button id="new-chat" class="new-chat" type="button"><span>＋</span> 新建对话</button>
-      <nav class="history"><p>最近对话</p><div id="conversation-list"></div></nav>
-      <button id="profile-button" class="profile" type="button"><span>${escapeHtml(user.displayName.slice(0, 1).toUpperCase())}</span><div><strong>${escapeHtml(user.displayName)}</strong><small>${escapeHtml(user.email)}</small></div><b>•••</b></button>
-    </aside>
+  root.innerHTML = `<div class="${appShellClass()}">
+    ${renderSidebar("chat")}
     <main class="chat-pane">
-      <header class="chat-header"><button id="mobile-menu" class="icon-button" type="button">☰</button><div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions"><span class="online-dot"></span></div></header>
+      <header class="chat-header">${sidebarToggle()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions"><span class="online-dot"></span></div></header>
       <section id="messages" class="messages">${renderMessages()}</section>
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
@@ -149,9 +212,9 @@ function renderConversationList(): void {
 function bindAppEvents(): void {
   hideContextMenu();
   document.querySelector("#new-chat")!.addEventListener("click", () => void createConversation());
-  document.querySelector("#profile-button")!.addEventListener("click", renderSettings);
-  document.querySelector("#configure-token")?.addEventListener("click", renderSettings);
-  document.querySelector("#mobile-menu")!.addEventListener("click", () => document.querySelector(".sidebar")!.classList.toggle("open"));
+  document.querySelector("#profile-button")!.addEventListener("click", () => navigate("/settings"));
+  document.querySelector("#configure-token")?.addEventListener("click", () => navigate("/settings"));
+  bindSidebarToggle();
   document.querySelectorAll<HTMLButtonElement>(".suggestions button").forEach((button) => button.addEventListener("click", () => void sendMessage(button.textContent ?? "")));
   const form = document.querySelector<HTMLFormElement>("#composer")!;
   const input = document.querySelector<HTMLTextAreaElement>("#message-input")!;
@@ -175,7 +238,10 @@ async function createConversation(): Promise<void> {
 async function openConversation(id: string): Promise<void> {
   try {
     const result = await api<{ conversation: Conversation; turns: Turn[] }>(`/v1/conversations/${id}`);
-    active = result.conversation; turns = result.turns; renderApp(); setTimeout(() => { const el = document.querySelector("#messages"); if (el) el.scrollTop = el.scrollHeight; });
+    active = result.conversation; turns = result.turns;
+    if (currentPath() !== "/") navigate("/");
+    else renderApp();
+    setTimeout(() => { const el = document.querySelector("#messages"); if (el) el.scrollTop = el.scrollHeight; });
   } catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
 }
 
@@ -219,16 +285,32 @@ async function deleteConversation(id: string): Promise<void> {
   } catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
 }
 
-function renderSettings(): void {
-  if (!user) return;
-  root.insertAdjacentHTML("beforeend", `<div class="modal-backdrop"><section class="settings-modal"><header><div><p class="eyebrow">ACCOUNT</p><h2>账户设置</h2></div><button id="close-settings" class="icon-button">×</button></header>
-    <form id="profile-form" class="settings-section"><h3>个人资料</h3><div class="field-row"><label>显示名称<input name="displayName" value="${escapeHtml(user.displayName)}" required maxlength="80"></label><label>邮箱<input name="email" type="email" value="${escapeHtml(user.email)}" required></label></div><button class="secondary" type="submit">保存资料</button></form>
+function renderSettingsContent(): string {
+  if (!user) return "";
+  return `<form id="profile-form" class="settings-section"><h3>个人资料</h3><div class="field-row"><label>显示名称<input name="displayName" value="${escapeHtml(user.displayName)}" required maxlength="80"></label><label>邮箱<input name="email" type="email" value="${escapeHtml(user.email)}" required></label></div><button class="secondary" type="submit">保存资料</button></form>
     <form id="token-form" class="settings-section"><h3>Dida MCP Token <span class="token-status ${user.didaTokenConfigured ? "ok" : ""}">${user.didaTokenConfigured ? `已连接 ${escapeHtml(user.didaTokenHint)}` : "未配置"}</span></h3><p>Token 将按账户独立保存，接口不会返回完整内容。</p><label>新 Token<input name="token" type="password" minlength="8" placeholder="粘贴 Dida MCP Token" required></label><button class="secondary" type="submit">验证并保存</button></form>
     <form id="password-form" class="settings-section"><h3>修改密码</h3><div class="field-row"><label>当前密码<input name="currentPassword" type="password" required></label><label>新密码<input name="newPassword" type="password" minlength="8" required></label></div><button class="secondary" type="submit">更新密码</button></form>
-    <div class="settings-section danger-zone"><h3>账户操作</h3><div><button id="logout" class="secondary">退出登录</button><button id="delete-account" class="danger-button">注销账户</button></div></div>
-  </section></div>`);
-  document.querySelector("#close-settings")!.addEventListener("click", () => document.querySelector(".modal-backdrop")?.remove());
-  document.querySelector(".modal-backdrop")!.addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.remove(); });
+    <div class="settings-section danger-zone"><h3>账户操作</h3><div><button id="logout" class="secondary">退出登录</button><button id="delete-account" class="danger-button">注销账户</button></div></div>`;
+}
+
+function renderSettingsPage(): void {
+  if (!user) return renderAuth();
+  root.innerHTML = `<div class="${appShellClass()}">
+    ${renderSidebar("settings")}
+    <main class="settings-pane">
+      <header class="settings-header">${sidebarToggle()}<button id="back-to-chat" class="back-link" type="button">← 返回对话</button><div><p class="eyebrow">ACCOUNT</p><h2>账户设置</h2></div></header>
+      <div class="settings-content">${renderSettingsContent()}</div>
+    </main></div>`;
+  renderConversationList();
+  bindSettingsPageEvents();
+}
+
+function bindSettingsPageEvents(): void {
+  hideContextMenu();
+  document.querySelector("#new-chat")!.addEventListener("click", () => { navigate("/"); void createConversation(); });
+  document.querySelector("#profile-button")!.addEventListener("click", () => navigate("/settings"));
+  bindSidebarToggle();
+  document.querySelector("#back-to-chat")!.addEventListener("click", () => navigate("/"));
   bindSettingsForms();
 }
 
@@ -238,13 +320,23 @@ function bindSettingsForms(): void {
     try { const result = await api<unknown>(url, { method, body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); onSuccess(result); showToast("保存成功"); }
     catch (error) { showToast(error instanceof Error ? error.message : String(error), true); } finally { button.disabled = false; }
   });
-  submit("#profile-form", "/v1/me", "PATCH", (result) => { user = (result as { user: User }).user; document.querySelector(".modal-backdrop")?.remove(); renderApp(); });
-  submit("#token-form", "/v1/me/dida-token", "PUT", (result) => { user = (result as { user: User }).user; document.querySelector(".modal-backdrop")?.remove(); renderApp(); });
+  submit("#profile-form", "/v1/me", "PATCH", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
+  submit("#token-form", "/v1/me/dida-token", "PUT", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
   submit("#password-form", "/v1/me/password", "PUT", () => { (document.querySelector("#password-form") as HTMLFormElement).reset(); });
-  document.querySelector("#logout")!.addEventListener("click", async () => { await api<void>("/v1/auth/logout", { method: "POST" }); user = null; conversations = []; active = null; turns = []; renderAuth(); });
+  document.querySelector("#logout")!.addEventListener("click", async () => {
+    await api<void>("/v1/auth/logout", { method: "POST" });
+    user = null; conversations = []; active = null; turns = [];
+    history.replaceState(null, "", "/");
+    renderAuth();
+  });
   document.querySelector("#delete-account")!.addEventListener("click", async () => {
     const password = prompt("注销会永久删除所有会话。请输入当前密码确认："); if (!password) return;
-    try { await api<void>("/v1/me", { method: "DELETE", body: JSON.stringify({ password }) }); user = null; conversations = []; active = null; turns = []; renderAuth(); }
+    try {
+      await api<void>("/v1/me", { method: "DELETE", body: JSON.stringify({ password }) });
+      user = null; conversations = []; active = null; turns = [];
+      history.replaceState(null, "", "/");
+      renderAuth();
+    }
     catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
   });
 }
@@ -255,9 +347,18 @@ async function bootstrap(): Promise<void> {
   });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") hideContextMenu(); });
   window.addEventListener("blur", hideContextMenu);
+  window.addEventListener("popstate", () => route());
   root.innerHTML = '<div class="boot"><div class="brand-mark">✦</div><p>正在载入 Missy…</p></div>';
-  try { user = (await api<{ user: User }>("/v1/me")).user; await loadConversations(); if (conversations[0]) await openConversation(conversations[0].id); else renderApp(); }
-  catch { user = null; renderAuth(); }
+  try {
+    user = (await api<{ user: User }>("/v1/me")).user;
+    await loadConversations();
+    if (currentPath() === "/settings") renderSettingsPage();
+    else if (conversations[0]) await openConversation(conversations[0].id);
+    else renderApp();
+  } catch {
+    user = null;
+    renderAuth();
+  }
 }
 
 void bootstrap();

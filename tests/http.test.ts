@@ -93,6 +93,10 @@ describe("multi-user HTTP API", () => {
     const list = await first.get("/v1/conversations?limit=1").expect(200);
     expect(list.body.conversations[0].title).toBe("我的计划");
     await first.delete(`/v1/conversations/${id}`).expect(204);
+    await first.get(`/v1/conversations/${id}`).expect(404);
+    const softDeleted = await database.query("SELECT hidden_at FROM conversations WHERE id = $1", [id]);
+    expect(softDeleted.rows).toHaveLength(1);
+    expect(softDeleted.rows[0].hidden_at).not.toBeNull();
   });
 
   it("persists token usage from failed agent turns", async () => {
@@ -108,6 +112,59 @@ describe("multi-user HTTP API", () => {
     const loaded = await agent.get(`/v1/conversations/${id}`).expect(200);
     expect(loaded.body.turns[0]).toMatchObject({ status: "failed", usage: { inputTokens: 9, outputTokens: 2, totalTokens: 11 } });
     expect(loaded.body.conversation.usage.totalTokens).toBe(11);
+  });
+
+  it("hides all conversations without deleting their stored data", async () => {
+    const agent = request.agent(app());
+    await agent.post("/v1/auth/login").send({ email: emails[0], password: "newpassword123" }).expect(200);
+    const first = await agent.post("/v1/conversations").send({ title: "待隐藏一" }).expect(201);
+    const second = await agent.post("/v1/conversations").send({ title: "待隐藏二" }).expect(201);
+
+    await agent.delete("/v1/conversations").expect(204);
+    const list = await agent.get("/v1/conversations").expect(200);
+    expect(list.body.conversations).toEqual([]);
+    await agent.get(`/v1/conversations/${first.body.conversation.id}`).expect(404);
+    await agent.patch(`/v1/conversations/${first.body.conversation.id}`).send({ title: "不可修改" }).expect(404);
+    await agent.post(`/v1/conversations/${first.body.conversation.id}/messages`).send({ message: "不可继续" }).expect(404);
+
+    const stored = await database.query(
+      "SELECT id, hidden_at FROM conversations WHERE id = ANY($1::uuid[]) ORDER BY id",
+      [[first.body.conversation.id, second.body.conversation.id]],
+    );
+    expect(stored.rows).toHaveLength(2);
+    expect(stored.rows.every((row) => row.hidden_at !== null)).toBe(true);
+
+    const fresh = await agent.post("/v1/conversations").send({ title: "清除后新会话" }).expect(201);
+    const refreshed = await agent.get("/v1/conversations").expect(200);
+    expect(refreshed.body.conversations.map((conversation: { id: string }) => conversation.id)).toEqual([fresh.body.conversation.id]);
+  });
+
+  it("streams assistant deltas and persists the completed turn", async () => {
+    const agent = request.agent(app());
+    const login = await agent.post("/v1/auth/login").send({ email: emails[0], password: "newpassword123" }).expect(200);
+    const created = await agent.post("/v1/conversations").send({}).expect(201);
+    const id = created.body.conversation.id as string;
+    const streamingRunner: RunTurn = async ({ message, onToken }) => {
+      await onToken?.("流式");
+      await onToken?.("完成");
+      return { message: `流式完成：${message}`, usage: { inputTokens: 7, outputTokens: 3, totalTokens: 10 } };
+    };
+    const streamingApp = createHttpApp({ database, model: "test:model", dida365McpUrl: "https://example.test", mcpManager: mcp, runTurn: streamingRunner });
+    const response = await request(streamingApp)
+      .post(`/v1/conversations/${id}/messages`)
+      .set("Cookie", login.headers["set-cookie"]?.[0])
+      .set("Accept", "application/x-ndjson")
+      .send({ message: "测试" })
+      .expect(200)
+      .expect("Content-Type", /application\/x-ndjson/);
+
+    const events = response.text.trim().split("\n").map((line) => JSON.parse(line));
+    expect(events.map((event) => event.type)).toEqual(["start", "delta", "delta", "done"]);
+    expect(events.slice(1, 3).map((event) => event.delta).join("")).toBe("流式完成");
+    expect(events.at(-1).turn).toMatchObject({ assistantContent: "流式完成：测试", status: "succeeded", usage: { totalTokens: 10 } });
+
+    const loaded = await agent.get(`/v1/conversations/${id}`).expect(200);
+    expect(loaded.body.turns[0]).toMatchObject({ assistantContent: "流式完成：测试", status: "succeeded" });
   });
 
   it("deletes an account and cascades its sessions", async () => {

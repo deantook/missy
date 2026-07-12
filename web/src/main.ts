@@ -6,6 +6,11 @@ type Usage = { inputTokens: number | null; outputTokens: number | null; totalTok
 type User = { id: string; email: string; displayName: string; didaTokenConfigured: boolean; didaTokenHint: string | null };
 type Conversation = { id: string; title: string; usage: Usage; createdAt: string; updatedAt: string };
 type Turn = { id: string; userContent: string; assistantContent: string | null; status: "pending" | "succeeded" | "failed"; errorMessage?: string | null; feedback?: "like" | "dislike" | null; usage: Usage; createdAt: string };
+type StreamEvent =
+  | { type: "start"; turn: Turn }
+  | { type: "delta"; delta: string; reset?: boolean }
+  | { type: "done"; turn: Turn }
+  | { type: "error"; error: { message?: string } };
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("找不到应用挂载点");
@@ -71,6 +76,41 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   return data;
 }
 
+async function streamApi(url: string, body: unknown, onEvent: (event: StreamEvent) => void): Promise<void> {
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(data.error?.message || `请求失败（${response.status}）`);
+  }
+  if (!response.body) throw new Error("浏览器不支持流式响应。");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let terminal = false;
+  const consume = (line: string) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line) as StreamEvent;
+    terminal ||= event.type === "done" || event.type === "error";
+    onEvent(event);
+  };
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) consume(line);
+    if (done) break;
+  }
+  consume(buffer);
+  if (!terminal) throw new Error("流式响应意外中断，请稍后重试。");
+}
+
 function usageText(usage: Usage): string {
   return usage.totalTokens === null ? "Token 暂不可用" : `${usage.totalTokens.toLocaleString()} tokens`;
 }
@@ -118,8 +158,13 @@ function renderSidebar(): string {
   if (!user) return "";
   return `<aside class="sidebar">
     <div class="logo"><span>✦</span><strong>Missy</strong></div>
-    <button id="new-chat" class="new-chat" type="button"><span>＋</span> 新建对话</button>
-    <nav class="history"><p>最近对话</p><div id="conversation-list"></div></nav>
+    <nav class="history">
+      <div class="history-header">
+        <p>最近对话</p>
+        <button id="new-chat" class="icon-button new-chat-icon" type="button" title="新建对话" aria-label="新建对话"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div id="conversation-list"></div>
+    </nav>
   </aside>`;
 }
 
@@ -127,31 +172,53 @@ function appShellClass(): string {
   return `app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`;
 }
 
-function sidebarToggle(): string {
-  return `<button id="sidebar-toggle" class="icon-button" type="button" title="显示或隐藏对话历史" aria-label="显示或隐藏对话历史" aria-pressed="${sidebarCollapsed}">☰</button>`;
+function sidebarEdgeToggle(): string {
+  const chevron = sidebarCollapsed
+    ? '<path d="m9 6 6 6-6 6"/>'
+    : '<path d="m15 6-6 6 6 6"/>';
+  return `<button id="sidebar-toggle" class="sidebar-edge-toggle sidebar-toggle" type="button" title="显示或隐藏对话历史" aria-label="显示或隐藏对话历史" aria-pressed="${sidebarCollapsed}"><svg viewBox="0 0 24 24" aria-hidden="true">${chevron}</svg></button>`;
 }
 
-function profileAvatar(active = false): string {
+function headerSidebarOpen(): string {
+  return `<button id="sidebar-open" class="icon-button sidebar-toggle" type="button" title="显示对话历史" aria-label="显示对话历史" aria-expanded="false">☰</button>`;
+}
+
+function profileAvatar(): string {
   if (!user) return "";
-  const initial = escapeHtml(user.displayName.slice(0, 1).toUpperCase());
-  return `<button id="profile-button" class="profile-avatar${active ? " active" : ""}" type="button" title="${escapeHtml(user.displayName)}" aria-label="账户设置">${initial}</button>`;
+  return `<button id="profile-button" class="icon-button" type="button" title="账户设置" aria-label="账户设置"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>`;
 }
 
 function bindSidebarToggle(): void {
+  const buttons = () => document.querySelectorAll<HTMLButtonElement>(".sidebar-toggle");
+  const syncEdgeIcon = (collapsed: boolean) => {
+    const edge = document.querySelector<HTMLButtonElement>("#sidebar-toggle");
+    if (!edge) return;
+    edge.setAttribute("aria-pressed", String(collapsed));
+    edge.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"}"/></svg>`;
+  };
+  const syncButtons = (collapsed: boolean, mobileOpen?: boolean) => {
+    buttons().forEach((button) => {
+      button.setAttribute("aria-pressed", String(collapsed));
+      if (mobileOpen !== undefined) button.setAttribute("aria-expanded", String(mobileOpen));
+    });
+    syncEdgeIcon(collapsed);
+  };
   const setDesktopCollapsed = (collapsed: boolean) => {
     sidebarCollapsed = collapsed;
     document.querySelector(".app-shell")!.classList.toggle("sidebar-collapsed", collapsed);
-    document.querySelector("#sidebar-toggle")!.setAttribute("aria-pressed", String(collapsed));
+    syncButtons(collapsed);
     try { localStorage.setItem(sidebarStorageKey, String(collapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
   };
-  document.querySelector("#sidebar-toggle")!.addEventListener("click", () => {
-    const sidebar = document.querySelector(".sidebar")!;
-    if (window.matchMedia("(max-width: 760px)").matches) {
-      const open = sidebar.classList.toggle("open");
-      document.querySelector("#sidebar-toggle")!.setAttribute("aria-expanded", String(open));
-      return;
-    }
-    setDesktopCollapsed(!sidebarCollapsed);
+  buttons().forEach((button) => {
+    button.addEventListener("click", () => {
+      const sidebar = document.querySelector(".sidebar")!;
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        const open = sidebar.classList.toggle("open");
+        syncButtons(sidebarCollapsed, open);
+        return;
+      }
+      setDesktopCollapsed(!sidebarCollapsed);
+    });
   });
 }
 
@@ -159,8 +226,9 @@ function renderApp(): void {
   if (!user) return renderAuth();
   root.innerHTML = `<div class="${appShellClass()}">
     ${renderSidebar()}
+    ${sidebarEdgeToggle()}
     <main class="chat-pane">
-      <header class="chat-header">${sidebarToggle()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${profileAvatar()}</div></header>
+      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${profileAvatar()}</div></header>
       <section id="messages" class="messages">${renderMessages()}</section>
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
@@ -180,7 +248,7 @@ function renderMessages(): string {
   if (!turns.length) return `<div class="welcome"><div class="brand-mark">✦</div><h1>今天想安排什么？</h1><p>查询待办、创建任务、调整日程，或者完成你的清单。</p><div class="suggestions"><button>今天有哪些待办？</button><button>创建一个明天下午三点写周报的任务</button><button>列出最近七天已完成的任务</button></div></div>`;
   return turns.map((turn) => `<div class="turn">
     <article class="message user"><div><p>你</p><div class="bubble">${escapeHtml(turn.userContent).replace(/\n/g, "<br>")}</div></div></article>
-    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div>${turn.status === "succeeded" ? renderFeedback(turn) : ""}</div></article>
+    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" && !turn.assistantContent ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div>${turn.status === "succeeded" ? renderFeedback(turn) : ""}</div></article>
   </div>`).join("");
 }
 
@@ -280,8 +348,21 @@ async function sendMessage(message: string): Promise<void> {
   const optimistic: Turn = { id: "pending", userContent: message, assistantContent: null, status: "pending", feedback: null, usage: { inputTokens: null, outputTokens: null, totalTokens: null }, createdAt: new Date().toISOString() };
   turns.push(optimistic); pending = true; renderApp();
   try {
-    const result = await api<{ turn: Turn }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ message, allowDelete: false }) });
-    turns[turns.length - 1] = result.turn;
+    await streamApi(`/v1/conversations/${conversationId}/messages`, { message, allowDelete: false }, (event) => {
+      if (event.type === "start") {
+        Object.assign(optimistic, event.turn);
+      } else if (event.type === "delta") {
+        optimistic.assistantContent = (event.reset ? "" : optimistic.assistantContent ?? "") + event.delta;
+        const bubble = document.querySelector<HTMLElement>(".turn:last-child .message.assistant .bubble");
+        if (bubble) bubble.innerHTML = renderMarkdown(optimistic.assistantContent);
+        const messages = document.querySelector<HTMLElement>("#messages");
+        if (messages) messages.scrollTop = messages.scrollHeight;
+      } else if (event.type === "done") {
+        turns[turns.length - 1] = event.turn;
+      } else {
+        throw new Error(event.error.message || "请求失败。");
+      }
+    });
     await loadConversations(); active = conversations.find((item) => item.id === conversationId) ?? active;
   } catch (error) {
     optimistic.status = "failed"; optimistic.errorMessage = error instanceof Error ? error.message : String(error);
@@ -357,11 +438,15 @@ function renderSettingsContent(): string {
       <form id="token-form" class="settings-section token-settings">
         <div class="section-heading"><span class="section-icon token-icon">${icon("M15 7a4 4 0 1 0-3.7 5.5L3 20.8V22h3l1.5-1.5L9 22l2-2-1.5-1.5 4.2-4.2A4 4 0 0 0 15 7Z")}</span><div><div class="heading-line"><h3>Dida MCP Token</h3><span class="token-status ${user.didaTokenConfigured ? "ok" : ""}"><i></i>${user.didaTokenConfigured ? "已连接" : "未配置"}</span></div><p>连接滴答清单，让 Missy 可以安全地管理你的任务</p></div></div>
         <div class="token-body">
-          <label>${user.didaTokenConfigured ? "替换 Token" : "添加 Token"}<span class="token-input-wrap"><input name="token" type="password" minlength="8" placeholder="粘贴 Dida MCP Token" required autocomplete="off"><small>${user.didaTokenConfigured ? escapeHtml(user.didaTokenHint) : "安全加密保存"}</small></span></label>
+          <label>${user.didaTokenConfigured ? "" : "添加 Token"}<span class="token-input-wrap"><input name="token" type="password" minlength="8" placeholder="粘贴 Dida MCP Token" required autocomplete="off"><small>${user.didaTokenConfigured ? escapeHtml(user.didaTokenHint) : "安全加密保存"}</small></span></label>
           <button class="primary compact" type="submit">验证并保存</button>
         </div>
-        <p class="privacy-note">${icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z")}Token 按账户独立保存，任何接口都不会返回完整内容。</p>
+        <p class="privacy-note">${icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z")}<span>Token 按账户独立保存，任何接口都不会返回完整内容。<br>获取方式：滴答清单 → <a href="https://dida365.com/webapp/#q/all/tasks?modalType=settings" target="_blank" rel="noopener noreferrer">设置</a> → 账户与安全 → API 口令 → 管理。</span></p>
       </form>
+      <section class="settings-section conversation-actions">
+        <div><h3>历史会话</h3><p>将全部历史会话从你的会话列表中隐藏。此操作无法撤销。</p></div>
+        <button id="clear-conversations" class="danger-button compact" type="button">清除历史会话</button>
+      </section>
       <section class="settings-section account-actions">
         <div><h3>账户操作</h3><p>退出当前设备，或永久删除账户及所有数据。</p></div>
         <div><button id="logout" class="text-button" type="button">退出登录</button><button id="delete-account" class="danger-button compact" type="button">注销账户</button></div>
@@ -373,8 +458,9 @@ function renderSettingsPage(): void {
   if (!user) return renderAuth();
   root.innerHTML = `<div class="${appShellClass()}">
     ${renderSidebar()}
+    ${sidebarEdgeToggle()}
     <main class="settings-pane">
-      <header class="settings-header">${sidebarToggle()}<span class="header-divider" aria-hidden="true"></span><button id="back-to-chat" class="back-link" type="button" title="返回对话" aria-label="返回对话"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><div class="header-actions">${profileAvatar(true)}</div></header>
+      <header class="settings-header">${headerSidebarOpen()}<button id="back-to-chat" class="back-link" type="button" title="返回对话" aria-label="返回对话"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><div class="header-actions">${profileAvatar()}</div></header>
       <div class="settings-content"><div class="settings-intro"><p class="eyebrow">ACCOUNT SETTINGS</p><h1>账户设置</h1><p>管理你的个人资料、服务连接与账户安全。</p></div>${renderSettingsContent()}</div>
     </main></div>`;
   renderConversationList();
@@ -399,6 +485,20 @@ function bindSettingsForms(): void {
   submit("#profile-form", "/v1/me", "PATCH", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
   submit("#token-form", "/v1/me/dida-token", "PUT", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
   submit("#password-form", "/v1/me/password", "PUT", () => { (document.querySelector("#password-form") as HTMLFormElement).reset(); });
+  document.querySelector("#clear-conversations")!.addEventListener("click", async (event) => {
+    if (!confirm("确定清除全部历史会话吗？清除后将无法在会话列表中找回。")) return;
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      await api<void>("/v1/conversations", { method: "DELETE" });
+      conversations = []; active = null; turns = [];
+      renderSettingsPage();
+      showToast("历史会话已清除");
+    } catch (error) {
+      button.disabled = false;
+      showToast(error instanceof Error ? error.message : String(error), true);
+    }
+  });
   document.querySelector("#logout")!.addEventListener("click", async () => {
     await api<void>("/v1/auth/logout", { method: "POST" });
     user = null; conversations = []; active = null; turns = [];

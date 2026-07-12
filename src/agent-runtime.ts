@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { NamedTool } from "./agent.ts";
 import { createTaskAgent } from "./agent.ts";
-import { lastAssistantText, resolveInterrupts } from "./conversation.ts";
+import { lastAssistantText, resolveInterruptsWith, type AgentResult } from "./conversation.ts";
 import { connectDida365Mcp, closeMcp, type McpHandle } from "./mcp.ts";
 import { UsageCollector, type TokenUsage } from "./usage.ts";
 
@@ -71,15 +71,52 @@ export async function runAgentTurn(params: {
   message: string;
   conversationId: string;
   allowDelete: boolean;
+  onToken?: (token: string, reset?: boolean) => void | Promise<void>;
 }): Promise<{ message: string; usage: TokenUsage }> {
   const collector = new UsageCollector();
   try {
     const { agent } = createTaskAgent({ model: params.model, tools: params.tools });
     const config = { configurable: { thread_id: params.conversationId }, callbacks: [collector.callback] };
-    let result = await agent.invoke({ messages: [...params.history, { role: "user" as const, content: params.message }] }, config);
-    result = await resolveInterrupts(agent, result, config, async () => params.allowDelete ? "approve" : "reject");
+    let streamedMessageId: string | undefined;
+    const stream = async (input: unknown): Promise<AgentResult> => {
+      const events = await agent.stream(input as never, { ...config, streamMode: ["messages", "values"] });
+      let latest: AgentResult | undefined;
+      for await (const rawEvent of events) {
+        const [mode, payload] = rawEvent as [string, unknown];
+        if (mode === "values") {
+          latest = payload as AgentResult;
+          continue;
+        }
+        if (mode !== "messages" || !params.onToken || !Array.isArray(payload)) continue;
+        const message = payload[0] as { id?: string; content?: unknown; getType?: () => string };
+        if (message.getType?.() !== "ai") continue;
+        const token = textContent(message.content);
+        if (!token) continue;
+        const reset = streamedMessageId !== undefined && message.id !== streamedMessageId;
+        streamedMessageId = message.id;
+        await params.onToken(token, reset);
+      }
+      if (!latest) throw new Error("模型流已结束，但没有返回最终状态。");
+      return latest;
+    };
+    let result = await stream({ messages: [...params.history, { role: "user" as const, content: params.message }] });
+    result = await resolveInterruptsWith(
+      result,
+      async () => params.allowDelete ? "approve" : "reject",
+      (command) => stream(command),
+    );
     return { message: lastAssistantText(result), usage: collector.value() };
   } catch (error) {
     throw new AgentRunError(error instanceof Error ? error.message : String(error), collector.value());
   }
+}
+
+function textContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.map((part) => {
+    if (typeof part === "string") return part;
+    if (part && typeof part === "object" && "text" in part) return String((part as { text: unknown }).text);
+    return "";
+  }).join("");
 }

@@ -4,6 +4,21 @@ import type { TokenUsage } from "./usage.ts";
 
 export type RunTurn = typeof runAgentTurn;
 
+type PendingTurn = {
+  id: string;
+  userContent: string;
+  assistantContent: null;
+  status: "pending";
+  feedback: null;
+  usage: TokenUsage;
+  createdAt: string;
+};
+
+type StreamCallbacks = {
+  onStart?: (turn: PendingTurn) => void | Promise<void>;
+  onDelta?: (delta: string, reset?: boolean) => void | Promise<void>;
+};
+
 export class ChatService {
   private readonly queues = new Map<string, Promise<void>>();
 
@@ -14,7 +29,7 @@ export class ChatService {
     private readonly runner: RunTurn = runAgentTurn,
   ) {}
 
-  async send(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean }) {
+  async send(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean } & StreamCallbacks) {
     const previous = this.queues.get(params.conversationId) ?? Promise.resolve();
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -29,13 +44,17 @@ export class ChatService {
     }
   }
 
-  private async execute(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean }) {
-    const conversation = await this.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2", [params.conversationId, params.userId]);
+  private async execute(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean } & StreamCallbacks) {
+    const conversation = await this.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL", [params.conversationId, params.userId]);
     if (!conversation.rowCount) throw Object.assign(new Error("会话不存在。"), { status: 404, code: "NOT_FOUND" });
-    const turn = await this.database.query<{ id: string }>("INSERT INTO chat_turns(conversation_id, user_content) VALUES ($1, $2) RETURNING id", [params.conversationId, params.message]);
+    const turn = await this.database.query<{ id: string; created_at: string }>("INSERT INTO chat_turns(conversation_id, user_content) VALUES ($1, $2) RETURNING id, created_at", [params.conversationId, params.message]);
     const turnId = turn.rows[0]!.id;
     let usage: TokenUsage = { inputTokens: null, outputTokens: null, totalTokens: null };
     try {
+      await params.onStart?.({
+        id: turnId, userContent: params.message, assistantContent: null, status: "pending",
+        feedback: null, usage, createdAt: new Date(turn.rows[0]!.created_at).toISOString(),
+      });
       const rows = await this.database.query<{ user_content: string; assistant_content: string }>(`SELECT user_content, assistant_content FROM chat_turns
         WHERE conversation_id = $1 AND status = 'succeeded' ORDER BY created_at, id`, [params.conversationId]);
       const history: StoredMessage[] = rows.rows.flatMap((row) => [
@@ -43,7 +62,11 @@ export class ChatService {
         { role: "assistant" as const, content: row.assistant_content },
       ]);
       const tools = await this.mcp.toolsFor(params.userId, params.didaToken);
-      const result = await this.runner({ model: this.model, tools, history, message: params.message, conversationId: params.conversationId, allowDelete: params.allowDelete });
+      const result = await this.runner({
+        model: this.model, tools, history, message: params.message,
+        conversationId: params.conversationId, allowDelete: params.allowDelete,
+        onToken: params.onDelta,
+      });
       usage = result.usage;
       await this.complete(turnId, params.conversationId, params.message, result.message, usage);
       return { id: turnId, userContent: params.message, assistantContent: result.message, status: "succeeded", feedback: null, usage, createdAt: new Date().toISOString() };

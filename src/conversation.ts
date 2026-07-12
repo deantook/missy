@@ -31,6 +31,14 @@ export async function resolveInterrupts(
   config: { configurable: { thread_id: string } },
   decide: (toolName: string, args: unknown) => Promise<DeleteDecision>,
 ): Promise<AgentResult> {
+  return resolveInterruptsWith(result, decide, (command) => agent.invoke(command, config));
+}
+
+export async function resolveInterruptsWith(
+  result: AgentResult,
+  decide: (toolName: string, args: unknown) => Promise<DeleteDecision>,
+  resume: (command: Command) => Promise<AgentResult>,
+): Promise<AgentResult> {
   let current = result;
   while ((current as Record<string, unknown>).__interrupt__) {
     const interrupts = (current as Record<string, unknown>).__interrupt__ as Array<{
@@ -52,7 +60,7 @@ export async function resolveInterrupts(
             },
       );
     }
-    current = await agent.invoke(new Command({ resume: { decisions } }), config);
+    current = await resume(new Command({ resume: { decisions } }));
   }
   return current;
 }

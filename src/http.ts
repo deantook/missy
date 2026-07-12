@@ -193,7 +193,7 @@ export function createHttpApp(params: {
     if (typeof req.query.cursor === "string") {
       try { [cursorDate, cursorId] = Buffer.from(req.query.cursor, "base64url").toString().split("|") as [string, string]; } catch { return sendError(res, 400, "INVALID_REQUEST", "cursor 无效。"); }
     }
-    const result = await params.database.query(`SELECT * FROM conversations WHERE user_id = $1
+    const result = await params.database.query(`SELECT * FROM conversations WHERE user_id = $1 AND hidden_at IS NULL
       AND ($2::timestamptz IS NULL OR (updated_at, id) < ($2::timestamptz, $3::uuid))
       ORDER BY updated_at DESC, id DESC LIMIT $4`, [user.id, cursorDate, cursorId, limit + 1]);
     const hasMore = result.rows.length > limit;
@@ -211,9 +211,18 @@ export function createHttpApp(params: {
     res.status(201).json({ conversation: conversationJson(result.rows[0]) });
   });
 
+  app.delete("/v1/conversations", async (req, res) => {
+    const user = await authenticated(req, res); if (!user) return;
+    await params.database.query(
+      "UPDATE conversations SET hidden_at = now() WHERE user_id = $1 AND hidden_at IS NULL",
+      [user.id],
+    );
+    res.status(204).end();
+  });
+
   app.get("/v1/conversations/:id", async (req, res) => {
     const user = await authenticated(req, res); if (!user) return;
-    const conversation = await params.database.query("SELECT * FROM conversations WHERE id = $1 AND user_id = $2", [req.params.id, user.id]);
+    const conversation = await params.database.query("SELECT * FROM conversations WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL", [req.params.id, user.id]);
     if (!conversation.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
     const turns = await params.database.query(`SELECT * FROM chat_turns WHERE conversation_id = $1 ORDER BY created_at, id`, [req.params.id]);
     res.json({ conversation: conversationJson(conversation.rows[0]), turns: turns.rows.map(turnJson) });
@@ -227,7 +236,7 @@ export function createHttpApp(params: {
     if (feedback !== null && feedback !== "like" && feedback !== "dislike") {
       return sendError(res, 400, "INVALID_REQUEST", "feedback 必须是 like、dislike 或 null。");
     }
-    const conversation = await params.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2", [req.params.id, user.id]);
+    const conversation = await params.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL", [req.params.id, user.id]);
     if (!conversation.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
     const result = await params.database.query(
       `UPDATE chat_turns SET feedback = $3, feedback_at = CASE WHEN $3::text IS NULL THEN NULL ELSE now() END
@@ -242,14 +251,17 @@ export function createHttpApp(params: {
     const user = await authenticated(req, res); if (!user) return;
     const title = textField(bodyOf(req), "title", { min: 1, max: 100 })!;
     const result = await params.database.query(`UPDATE conversations SET title = $3, title_is_custom = true, updated_at = now()
-      WHERE id = $1 AND user_id = $2 RETURNING *`, [req.params.id, user.id, title]);
+      WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL RETURNING *`, [req.params.id, user.id, title]);
     if (!result.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
     res.json({ conversation: conversationJson(result.rows[0]) });
   });
 
   app.delete("/v1/conversations/:id", async (req, res) => {
     const user = await authenticated(req, res); if (!user) return;
-    const result = await params.database.query("DELETE FROM conversations WHERE id = $1 AND user_id = $2", [req.params.id, user.id]);
+    const result = await params.database.query(
+      "UPDATE conversations SET hidden_at = now() WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL RETURNING id",
+      [req.params.id, user.id],
+    );
     if (!result.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
     res.status(204).end();
   });
@@ -260,8 +272,38 @@ export function createHttpApp(params: {
     const body = bodyOf(req);
     const message = textField(body, "message", { min: 1, max: 4000 })!;
     if (body.allowDelete !== undefined && typeof body.allowDelete !== "boolean") return sendError(res, 400, "INVALID_REQUEST", "allowDelete 必须是布尔值。");
-    const turn = await chat.send({ userId: user.id, didaToken: user.dida_mcp_token, conversationId: req.params.id!, message, allowDelete: body.allowDelete === true });
-    res.json({ turn });
+    const stream = req.header("accept")?.split(",").some((value) => value.trim().split(";")[0] === "application/x-ndjson") === true;
+    if (!stream) {
+      const turn = await chat.send({ userId: user.id, didaToken: user.dida_mcp_token, conversationId: req.params.id!, message, allowDelete: body.allowDelete === true });
+      return res.json({ turn });
+    }
+
+    const write = (event: unknown) => {
+      if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify(event)}\n`);
+    };
+    try {
+      const turn = await chat.send({
+        userId: user.id, didaToken: user.dida_mcp_token, conversationId: req.params.id!, message,
+        allowDelete: body.allowDelete === true,
+        onStart: (pendingTurn) => {
+          res.status(200).set({
+            "Content-Type": "application/x-ndjson; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+          });
+          res.flushHeaders();
+          write({ type: "start", turn: pendingTurn });
+        },
+        onDelta: (delta, reset) => write({ type: "delta", delta, reset: reset === true }),
+      });
+      write({ type: "done", turn });
+    } catch (error) {
+      const details = error as { message?: string; code?: string };
+      if (!res.headersSent) throw error;
+      write({ type: "error", error: { code: details.code ?? "AGENT_ERROR", message: details.message ?? "请求失败。" } });
+    } finally {
+      if (!res.writableEnded) res.end();
+    }
   });
 
   if (params.production) {

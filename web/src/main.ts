@@ -113,10 +113,6 @@ async function streamApi(url: string, body: unknown, onEvent: (event: StreamEven
   if (!terminal) throw new Error("流式响应意外中断，请稍后重试。");
 }
 
-function usageText(usage: Usage): string {
-  return usage.totalTokens === null ? "Token 暂不可用" : `${usage.totalTokens.toLocaleString()} tokens`;
-}
-
 function showToast(message: string, error = false): void {
   document.querySelector(".toast")?.remove();
   root.insertAdjacentHTML("beforeend", `<div class="toast ${error ? "error" : ""}">${escapeHtml(message)}</div>`);
@@ -271,17 +267,34 @@ function renderChoiceDialog(): string {
   const choice = pendingChoice();
   if (!choice) return "";
   const { turn, prompt } = choice;
-  const inputType = prompt.mode === "single" ? "radio" : "checkbox";
+  const selectionOptions = prompt.mode === "form" ? renderFormFields(prompt) : renderSelectionOptions(prompt);
   return `<div class="choice-dialog-backdrop" data-choice-turn="${escapeHtml(turn.id)}">
     <section class="choice-dialog" role="dialog" aria-modal="true" aria-labelledby="choice-dialog-title">
       <div class="choice-dialog-header"><div><span class="choice-dialog-kicker">帮我确认一下</span><h3 id="choice-dialog-title">${escapeHtml(prompt.question)}</h3></div><button class="choice-dialog-close" type="button" aria-label="关闭，改为手动输入">×</button></div>
       <form id="choice-form" data-mode="${prompt.mode}">
-        <div class="choice-options">${prompt.options.map((option, index) => `<label class="choice-option"><input type="${inputType}" name="choice" value="${index}"><span class="choice-control" aria-hidden="true"></span><span><strong>${escapeHtml(option.label)}</strong>${option.description ? `<small>${escapeHtml(option.description)}</small>` : ""}</span></label>`).join("")}</div>
+        ${selectionOptions}
         ${prompt.allowOther ? '<label class="choice-other"><span>其他（可选）</span><input name="other" maxlength="240" placeholder="补充你的情况…"></label>' : ""}
         <div class="choice-dialog-actions"><button class="choice-skip" type="button">我自己输入</button><button class="primary choice-submit" type="submit" disabled>${escapeHtml(prompt.submitLabel)}</button></div>
       </form>
     </section>
   </div>`;
+}
+
+function renderSelectionOptions(prompt: ChoicePrompt): string {
+  const inputType = prompt.mode === "single" ? "radio" : "checkbox";
+  return `<div class="choice-options">${prompt.options.map((option, index) => `<label class="choice-option"><input type="${inputType}" name="choice" value="${index}"><span class="choice-control" aria-hidden="true"></span><span><strong>${escapeHtml(option.label)}</strong>${option.description ? `<small>${escapeHtml(option.description)}</small>` : ""}</span></label>`).join("")}</div>`;
+}
+
+function renderFormFields(prompt: ChoicePrompt): string {
+  return `<div class="choice-fields">${prompt.fields.map((field) => {
+    const name = `field:${field.id}`;
+    if (field.type === "single" || field.type === "multiple") {
+      const inputType = field.type === "single" ? "radio" : "checkbox";
+      return `<fieldset class="choice-field" data-field-id="${escapeHtml(field.id)}" data-required="${field.required}"><legend>${escapeHtml(field.label)}${field.required ? " *" : ""}</legend><div class="choice-field-options">${field.options!.map((option, index) => `<label><input type="${inputType}" name="${escapeHtml(name)}" value="${index}"><span>${escapeHtml(option.label)}</span></label>`).join("")}</div></fieldset>`;
+    }
+    const attributes = `${field.required ? " required" : ""}${field.min !== undefined ? ` min="${field.min}"` : ""}${field.max !== undefined ? ` max="${field.max}"` : ""}`;
+    return `<label class="choice-field choice-field-input" data-field-id="${escapeHtml(field.id)}" data-required="${field.required}"><span>${escapeHtml(field.label)}${field.required ? " *" : ""}</span><span class="choice-input-wrap"><input type="${field.type}" name="${escapeHtml(name)}" maxlength="240" placeholder="${escapeHtml(field.placeholder ?? "请输入")}"${attributes}>${field.unit ? `<b>${escapeHtml(field.unit)}</b>` : ""}</span></label>`;
+  }).join("")}</div>`;
 }
 
 function renderFeedback(turn: Turn): string {
@@ -322,7 +335,7 @@ function showConversationMenu(event: MouseEvent, conversationId: string): void {
 function renderConversationList(): void {
   const list = document.querySelector("#conversation-list");
   if (!list) return;
-  list.innerHTML = conversations.length ? conversations.map((conversation) => `<button class="conversation-item ${active?.id === conversation.id ? "active" : ""}" data-id="${conversation.id}"><span>${escapeHtml(conversation.title)}</span><small>${usageText(conversation.usage)}</small></button>`).join("") : '<p class="empty-list">还没有历史对话</p>';
+  list.innerHTML = conversations.length ? conversations.map((conversation) => `<button class="conversation-item ${active?.id === conversation.id ? "active" : ""}" data-id="${conversation.id}"><span>${escapeHtml(conversation.title)}</span></button>`).join("") : '<p class="empty-list">还没有历史对话</p>';
   list.querySelectorAll<HTMLButtonElement>("[data-id]").forEach((button) => {
     button.addEventListener("click", () => void openConversation(button.dataset.id!));
     button.addEventListener("contextmenu", (event) => showConversationMenu(event, button.dataset.id!));
@@ -358,9 +371,20 @@ function bindChoiceDialog(): void {
   const submit = form.querySelector<HTMLButtonElement>(".choice-submit")!;
   const other = form.elements.namedItem("other") as HTMLInputElement | null;
   const selectedInputs = () => Array.from(form.querySelectorAll<HTMLInputElement>('input[name="choice"]:checked'));
-  const sync = () => { submit.disabled = selectedInputs().length === 0 && !other?.value.trim(); };
+  const formComplete = () => choice.prompt.fields.every((field) => {
+    if (!field.required) return true;
+    const inputs = Array.from(form.querySelectorAll<HTMLInputElement>(`[name="field:${CSS.escape(field.id)}"]`));
+    return field.type === "single" || field.type === "multiple" ? inputs.some((input) => input.checked) : Boolean(inputs[0]?.value.trim());
+  });
+  const sync = () => {
+    submit.disabled = choice.prompt.mode === "form"
+      ? !formComplete()
+      : selectedInputs().length === 0 && !other?.value.trim();
+  };
   form.addEventListener("change", sync);
   other?.addEventListener("input", sync);
+  form.querySelectorAll("input").forEach((input) => input.addEventListener("input", sync));
+  sync();
   let onKeydown: (event: KeyboardEvent) => void;
   const dismiss = () => {
     document.removeEventListener("keydown", onKeydown);
@@ -378,6 +402,19 @@ function bindChoiceDialog(): void {
   document.addEventListener("keydown", onKeydown);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (choice.prompt.mode === "form") {
+      if (!formComplete() || !form.reportValidity()) return;
+      const answers = choice.prompt.fields.flatMap((field) => {
+        const inputs = Array.from(form.querySelectorAll<HTMLInputElement>(`[name="field:${CSS.escape(field.id)}"]`));
+        const values = field.type === "single" || field.type === "multiple"
+          ? inputs.filter((input) => input.checked).map((input) => field.options?.[Number(input.value)]?.label).filter(Boolean)
+          : [inputs[0]?.value.trim()].filter(Boolean);
+        return values.length ? [`${field.label}：${values.join("、")}${field.unit && field.type === "number" ? ` ${field.unit}` : ""}`] : [];
+      });
+      dismiss();
+      void sendMessage(`我的信息：${answers.join("；")}`);
+      return;
+    }
     const labels = selectedInputs().map((input) => choice.prompt.options[Number(input.value)]?.label).filter(Boolean);
     const custom = other?.value.trim();
     if (!labels.length && !custom) return;

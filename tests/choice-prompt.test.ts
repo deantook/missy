@@ -11,6 +11,7 @@ describe("choice prompt protocol", () => {
       mode: "multiple",
       question: "你希望重点准备哪些方向？",
       options: [{ label: "Java 基础" }, { label: "Spring Boot", description: "项目搭建与常用组件" }],
+      fields: [],
       allowOther: true,
       submitLabel: "开始制定",
     });
@@ -30,5 +31,28 @@ describe("choice prompt protocol", () => {
   it("rejects malformed and unsafe prompt shapes", () => {
     expect(parseChoicePrompt("```choice_prompt\n{}\n```" )).toBeNull();
     expect(parseChoicePrompt(`\`\`\`choice_prompt\n{"mode":"single","question":"Q","options":[{"label":"only"}]}\n\`\`\``)).toBeNull();
+  });
+
+  it("parses a mixed input form for information collection", () => {
+    const form = `\`\`\`choice_prompt
+{"mode":"form","question":"请填写基础信息","fields":[{"id":"height","label":"身高","type":"number","unit":"cm","min":100,"max":250},{"id":"gender","label":"性别","type":"single","options":[{"label":"男"},{"label":"女"}]}],"submitLabel":"生成计划"}
+\`\`\``;
+    expect(parseChoicePrompt(form)).toMatchObject({
+      mode: "form",
+      question: "请填写基础信息",
+      options: [],
+      allowOther: false,
+      fields: [
+        { id: "height", label: "身高", type: "number", unit: "cm", min: 100, max: 250, required: true },
+        { id: "gender", label: "性别", type: "single", required: true, options: [{ label: "男" }, { label: "女" }] },
+      ],
+    });
+  });
+
+  it("accepts and hides the XML wrapper emitted by some models", () => {
+    const response = `先收集一下你的基础信息。\n\n<choice_prompt>\n{"mode":"form","question":"请填写基本信息","fields":[{"id":"height","label":"身高","type":"number","unit":"cm"}],"submitLabel":"继续"}\n</choice_prompt>`;
+    expect(parseChoicePrompt(response)).toMatchObject({ mode: "form", question: "请填写基本信息" });
+    expect(visibleAssistantContent(response)).toBe("先收集一下你的基础信息。");
+    expect(visibleAssistantContent("说明\n<choice_prompt>\n{\"mode\":")).toBe("说明");
   });
 });

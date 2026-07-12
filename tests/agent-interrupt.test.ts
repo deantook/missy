@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDeleteInterruptOn } from "../src/agent.ts";
-import { createdProjectWithoutTasks, projectCreationNeedsVerification, successfulToolNames } from "../src/conversation.ts";
+import { createdProjectWithoutTasks, hasRenderableChoicePrompt, needsStructuredClarification, projectCreationNeedsVerification, successfulToolNames } from "../src/conversation.ts";
 
 describe("buildDeleteInterruptOn", () => {
   it("maps tools whose names start with delete_", () => {
@@ -17,6 +17,22 @@ describe("buildDeleteInterruptOn", () => {
 
   it("returns empty object when no delete tools", () => {
     expect(buildDeleteInterruptOn([{ name: "create_task" }])).toEqual({});
+  });
+});
+
+describe("structured clarification consistency", () => {
+  it("detects plain-text questions that should have used a renderable prompt", () => {
+    expect(needsStructuredClarification("你的身高和体重是多少？你的年龄呢？")).toBe(true);
+    expect(needsStructuredClarification("任务已经创建完成。")).toBe(false);
+    expect(needsStructuredClarification("请确认：\n```choice_prompt\n{}\n```")).toBe(true);
+  });
+
+  it("validates selection and form protocols before allowing them through", () => {
+    expect(hasRenderableChoicePrompt('```choice_prompt\n{"mode":"single","question":"选择？","options":[{"label":"A"},{"label":"B"}]}\n```')).toBe(true);
+    expect(hasRenderableChoicePrompt('```choice_prompt\n{"mode":"form","question":"填写信息","fields":[{"id":"height","label":"身高","type":"number"}]}\n```')).toBe(true);
+    expect(hasRenderableChoicePrompt('```choice_prompt\n{"mode":"form","question":"填写信息","fields":[{"id":"height","label":"性别","type":"single","options":[]}]}\n```')).toBe(false);
+    expect(hasRenderableChoicePrompt('<choice_prompt>\n{"mode":"form","question":"填写信息","fields":[{"id":"height","label":"身高","type":"number"}]}\n</choice_prompt>')).toBe(true);
+    expect(needsStructuredClarification('<choice_prompt>\n{}\n</choice_prompt>')).toBe(true);
   });
 });
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { NamedTool } from "./agent.ts";
 import { createTaskAgent } from "./agent.ts";
-import { lastAssistantText, projectCreationNeedsVerification, resolveInterruptsWith, type AgentResult } from "./conversation.ts";
+import { lastAssistantText, needsStructuredClarification, projectCreationNeedsVerification, resolveInterruptsWith, type AgentResult } from "./conversation.ts";
 import { connectDida365Mcp, closeMcp, type McpHandle } from "./mcp.ts";
 import { UsageCollector, type TokenUsage } from "./usage.ts";
 
@@ -113,6 +113,15 @@ export async function runAgentTurn(params: {
     }
     if (projectCreationNeedsVerification(result)) {
       throw new Error("清单任务写入或回查验证未完成；系统已阻止返回错误的成功结果，请重试。");
+    }
+    for (let attempt = 0; attempt < 2 && needsStructuredClarification(lastAssistantText(result)); attempt += 1) {
+      result = await stream({ messages: [{
+        role: "user" as const,
+        content: "系统界面一致性检查：上一条回复正在向用户提问，但没有输出可渲染的 choice_prompt。请立即重写上一条回复，不要回答问题本身，也不要输出普通文本问题。互斥选项使用 single，可多选使用 multiple；身高、体重、年龄等需要自由输入或一次收集多个信息时必须使用 form fields。严格按照系统提示中的 JSON 协议输出。",
+      }] });
+    }
+    if (needsStructuredClarification(lastAssistantText(result))) {
+      throw new Error("模型未返回可渲染的提问表单；系统已阻止显示普通文本问题，请重试。");
     }
     return { message: lastAssistantText(result), usage: collector.value() };
   } catch (error) {

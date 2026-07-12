@@ -10,6 +10,8 @@ describe("date context prompt", () => {
     expect(prompt).toContain("不得根据训练语料或自身知识猜测当前年份");
     expect(prompt).toContain("```choice_prompt");
     expect(prompt).toContain('"mode":"single"');
+    expect(prompt).toContain('"mode":"form"');
+    expect(prompt).toContain("绝不允许用普通 Markdown 列表或段落直接提问");
   });
 
   it("uses Asia/Shanghai across a UTC date boundary", () => {

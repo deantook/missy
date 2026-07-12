@@ -5,7 +5,7 @@ import { TokenForm } from "../components/settings/TokenForm.tsx";
 import { AppShell } from "../components/AppShell.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
-import { useRouter } from "../hooks/useRouter.ts";
+import { useRouter } from "../hooks/useRouter.tsx";
 import styles from "./SettingsPage.module.css";
 
 export function SettingsPage() {

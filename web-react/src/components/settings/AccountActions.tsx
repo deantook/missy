@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext.tsx";
 import { useChat } from "../../context/ChatContext.tsx";
 import { useToast } from "../../context/ToastContext.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
-import { useRouter } from "../../hooks/useRouter.ts";
+import { useRouter } from "../../hooks/useRouter.tsx";
 import styles from "./AccountActions.module.css";
 
 export function AccountActions() {

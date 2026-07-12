@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { BootScreen } from "./components/BootScreen.tsx";
 import { useAuth } from "./context/AuthContext.tsx";
-import { useRouter } from "./hooks/useRouter.ts";
+import { useRouter } from "./hooks/useRouter.tsx";
 import { isDesktopShell } from "./lib/desktop.ts";
 import { AuthPage } from "./pages/AuthPage.tsx";
 import { ChatPage } from "./pages/ChatPage.tsx";

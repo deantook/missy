@@ -7,7 +7,7 @@ import { MessageList } from "../components/MessageList.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
 import { useChat } from "../context/ChatContext.tsx";
-import { useRouter } from "../hooks/useRouter.ts";
+import { useRouter } from "../hooks/useRouter.tsx";
 import { isDebugBuild } from "../lib/debug-timeline.ts";
 import { parseChoicePrompt } from "../lib/choice-prompt.ts";
 import styles from "./ChatPage.module.css";

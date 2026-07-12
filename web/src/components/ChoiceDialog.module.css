@@ -3,9 +3,9 @@
   z-index: 70;
   inset: 0;
   display: grid;
-  place-items: end center;
+  place-items: center;
   padding: 22px;
-  background: linear-gradient(180deg, transparent, rgb(20 20 16 / 36%));
+  background: rgb(20 20 16 / 36%);
   pointer-events: none;
 }
 

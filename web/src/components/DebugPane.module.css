@@ -50,9 +50,14 @@
   font-weight: 600;
 }
 
-.actions button:hover {
+.actions button:hover:not(:disabled) {
   background: #343530;
   color: #e2e3dd;
+}
+
+.actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .timeline {

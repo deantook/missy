@@ -15,6 +15,11 @@
 .message.assistant .bubble{display:block;width:100%;max-width:none;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;overflow-wrap:anywhere}
 .message.assistant .bubble.failed{padding:12px 14px;border:1px solid #efb6ac;border-radius:10px;background:#fff4f2}
 .message.assistant .usage{margin-top:14px;padding-top:10px;border-top:1px solid #e8e7e1}
+.feedback{display:flex;align-items:center;gap:4px;margin-top:12px;padding-top:10px;border-top:1px solid #e8e7e1}
+.feedback-btn{display:grid;width:32px;height:32px;place-items:center;border:0;border-radius:8px;background:transparent;color:#9a9b95;transition:color .15s ease,background .15s ease}
+.feedback-btn:hover{background:#eeede7;color:#555650}
+.feedback-btn.active{color:#df604c;background:#fff0ed}
+.feedback-btn.active:hover{color:#c84b38;background:#ffe8e3}
 .markdown{font-size:15px;line-height:1.78;color:#30312d}
 .markdown>*:first-child{margin-top:0}.markdown>*:last-child{margin-bottom:0}
 .markdown p{margin:0 0 14px;color:inherit;font-size:inherit;font-weight:400}

@@ -73,9 +73,19 @@ describe("multi-user HTTP API", () => {
     expect(loaded.body.conversation.title).toBe("今天有什么任务？");
     expect(loaded.body.conversation.usage.totalTokens).toBe(17);
     expect(loaded.body.turns[0].assistantContent).toBe("完成：今天有什么任务？");
+    expect(loaded.body.turns[0].feedback).toBeNull();
+
+    const liked = await first.put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).send({ feedback: "like" }).expect(200);
+    expect(liked.body.turn.feedback).toBe("like");
+    const disliked = await first.put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).send({ feedback: "dislike" }).expect(200);
+    expect(disliked.body.turn.feedback).toBe("dislike");
+    const cleared = await first.put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).send({ feedback: null }).expect(200);
+    expect(cleared.body.turn.feedback).toBeNull();
+    await first.put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).send({ feedback: "meh" }).expect(400);
 
     const second = await register(emails[1]!);
     await second.get(`/v1/conversations/${id}`).expect(404);
+    await second.put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).send({ feedback: "like" }).expect(404);
     await second.patch(`/v1/conversations/${id}`).send({ title: "越权" }).expect(404);
     await second.delete(`/v1/conversations/${id}`).expect(404);
 

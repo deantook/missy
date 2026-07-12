@@ -5,7 +5,7 @@ import { marked } from "marked";
 type Usage = { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null };
 type User = { id: string; email: string; displayName: string; didaTokenConfigured: boolean; didaTokenHint: string | null };
 type Conversation = { id: string; title: string; usage: Usage; createdAt: string; updatedAt: string };
-type Turn = { id: string; userContent: string; assistantContent: string | null; status: "pending" | "succeeded" | "failed"; errorMessage?: string | null; usage: Usage; createdAt: string };
+type Turn = { id: string; userContent: string; assistantContent: string | null; status: "pending" | "succeeded" | "failed"; errorMessage?: string | null; feedback?: "like" | "dislike" | null; usage: Usage; createdAt: string };
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("找不到应用挂载点");
@@ -180,8 +180,20 @@ function renderMessages(): string {
   if (!turns.length) return `<div class="welcome"><div class="brand-mark">✦</div><h1>今天想安排什么？</h1><p>查询待办、创建任务、调整日程，或者完成你的清单。</p><div class="suggestions"><button>今天有哪些待办？</button><button>创建一个明天下午三点写周报的任务</button><button>列出最近七天已完成的任务</button></div></div>`;
   return turns.map((turn) => `<div class="turn">
     <article class="message user"><div><p>你</p><div class="bubble">${escapeHtml(turn.userContent).replace(/\n/g, "<br>")}</div></div></article>
-    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div></div></article>
+    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div>${turn.status === "succeeded" ? renderFeedback(turn) : ""}</div></article>
   </div>`).join("");
+}
+
+function renderFeedback(turn: Turn): string {
+  const value = turn.feedback ?? null;
+  return `<div class="feedback" role="group" aria-label="回复评价">
+    <button type="button" class="feedback-btn ${value === "like" ? "active" : ""}" data-turn-id="${escapeHtml(turn.id)}" data-feedback="like" title="有帮助" aria-label="点赞" aria-pressed="${value === "like"}">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 6.59 7.59C6.22 7.95 6 8.45 6 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+    </button>
+    <button type="button" class="feedback-btn ${value === "dislike" ? "active" : ""}" data-turn-id="${escapeHtml(turn.id)}" data-feedback="dislike" title="没帮助" aria-label="点踩" aria-pressed="${value === "dislike"}">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M22 3h-4v12h4V3zM2 14c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l6.58-6.59c.37-.36.59-.86.59-1.41V5c0-1.1-.9-2-2-2H7c-.83 0-1.54.5-1.84 1.22L2.14 11.27c-.09.23-.14.47-.14.73v2z"/></svg>
+    </button>
+  </div>`;
 }
 
 function hideContextMenu(): void {
@@ -224,6 +236,13 @@ function bindAppEvents(): void {
   document.querySelector("#configure-token")?.addEventListener("click", () => navigate("/settings"));
   bindSidebarToggle();
   document.querySelectorAll<HTMLButtonElement>(".suggestions button").forEach((button) => button.addEventListener("click", () => void sendMessage(button.textContent ?? "")));
+  document.querySelectorAll<HTMLButtonElement>(".feedback-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const turnId = button.dataset.turnId;
+      const feedback = button.dataset.feedback as "like" | "dislike" | undefined;
+      if (turnId && feedback) void setTurnFeedback(turnId, feedback);
+    });
+  });
   const form = document.querySelector<HTMLFormElement>("#composer")!;
   const input = document.querySelector<HTMLTextAreaElement>("#message-input")!;
   form.addEventListener("submit", (event) => { event.preventDefault(); const message = input.value.trim(); if (message) { input.value = ""; void sendMessage(message); } });
@@ -258,7 +277,7 @@ async function sendMessage(message: string): Promise<void> {
   if (!active) await createConversation();
   if (!active) return;
   const conversationId = active.id;
-  const optimistic: Turn = { id: "pending", userContent: message, assistantContent: null, status: "pending", usage: { inputTokens: null, outputTokens: null, totalTokens: null }, createdAt: new Date().toISOString() };
+  const optimistic: Turn = { id: "pending", userContent: message, assistantContent: null, status: "pending", feedback: null, usage: { inputTokens: null, outputTokens: null, totalTokens: null }, createdAt: new Date().toISOString() };
   turns.push(optimistic); pending = true; renderApp();
   try {
     const result = await api<{ turn: Turn }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ message, allowDelete: false }) });
@@ -267,6 +286,29 @@ async function sendMessage(message: string): Promise<void> {
   } catch (error) {
     optimistic.status = "failed"; optimistic.errorMessage = error instanceof Error ? error.message : String(error);
   } finally { pending = false; renderApp(); }
+}
+
+async function setTurnFeedback(turnId: string, feedback: "like" | "dislike"): Promise<void> {
+  if (!active || pending) return;
+  const turn = turns.find((item) => item.id === turnId);
+  if (!turn || turn.status !== "succeeded") return;
+  const next = turn.feedback === feedback ? null : feedback;
+  const previous = turn.feedback ?? null;
+  turn.feedback = next;
+  renderApp();
+  try {
+    const result = await api<{ turn: Turn }>(`/v1/conversations/${active.id}/turns/${turnId}/feedback`, {
+      method: "PUT",
+      body: JSON.stringify({ feedback: next }),
+    });
+    const index = turns.findIndex((item) => item.id === turnId);
+    if (index >= 0) turns[index] = { ...turns[index]!, ...result.turn };
+    renderApp();
+  } catch (error) {
+    turn.feedback = previous;
+    renderApp();
+    showToast(error instanceof Error ? error.message : String(error), true);
+  }
 }
 
 async function renameConversation(id: string): Promise<void> {

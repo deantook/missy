@@ -46,7 +46,7 @@ export class ChatService {
       const result = await this.runner({ model: this.model, tools, history, message: params.message, conversationId: params.conversationId, allowDelete: params.allowDelete });
       usage = result.usage;
       await this.complete(turnId, params.conversationId, params.message, result.message, usage);
-      return { id: turnId, userContent: params.message, assistantContent: result.message, status: "succeeded", usage, createdAt: new Date().toISOString() };
+      return { id: turnId, userContent: params.message, assistantContent: result.message, status: "succeeded", feedback: null, usage, createdAt: new Date().toISOString() };
     } catch (error) {
       if (error instanceof AgentRunError) usage = error.usage;
       const message = error instanceof Error ? error.message : String(error);

@@ -52,6 +52,22 @@ function conversationJson(row: Record<string, unknown>) {
   };
 }
 
+function turnJson(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    userContent: row.user_content,
+    assistantContent: row.assistant_content,
+    status: row.status,
+    errorMessage: row.error_message,
+    feedback: row.feedback ?? null,
+    usage: row.total_tokens === null
+      ? { inputTokens: null, outputTokens: null, totalTokens: null }
+      : { inputTokens: Number(row.input_tokens), outputTokens: Number(row.output_tokens), totalTokens: Number(row.total_tokens) },
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  };
+}
+
 export function createHttpApp(params: {
   database: Database;
   model: string;
@@ -200,12 +216,26 @@ export function createHttpApp(params: {
     const conversation = await params.database.query("SELECT * FROM conversations WHERE id = $1 AND user_id = $2", [req.params.id, user.id]);
     if (!conversation.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
     const turns = await params.database.query(`SELECT * FROM chat_turns WHERE conversation_id = $1 ORDER BY created_at, id`, [req.params.id]);
-    res.json({ conversation: conversationJson(conversation.rows[0]), turns: turns.rows.map((row) => ({
-      id: row.id, userContent: row.user_content, assistantContent: row.assistant_content, status: row.status,
-      errorMessage: row.error_message,
-      usage: row.total_tokens === null ? { inputTokens: null, outputTokens: null, totalTokens: null } : { inputTokens: Number(row.input_tokens), outputTokens: Number(row.output_tokens), totalTokens: Number(row.total_tokens) },
-      createdAt: row.created_at, completedAt: row.completed_at,
-    })) });
+    res.json({ conversation: conversationJson(conversation.rows[0]), turns: turns.rows.map(turnJson) });
+  });
+
+  app.put("/v1/conversations/:id/turns/:turnId/feedback", async (req, res) => {
+    const user = await authenticated(req, res); if (!user) return;
+    const body = bodyOf(req);
+    if (!("feedback" in body)) return sendError(res, 400, "INVALID_REQUEST", "必须提供 feedback 字段。");
+    const feedback = body.feedback;
+    if (feedback !== null && feedback !== "like" && feedback !== "dislike") {
+      return sendError(res, 400, "INVALID_REQUEST", "feedback 必须是 like、dislike 或 null。");
+    }
+    const conversation = await params.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2", [req.params.id, user.id]);
+    if (!conversation.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
+    const result = await params.database.query(
+      `UPDATE chat_turns SET feedback = $3, feedback_at = CASE WHEN $3::text IS NULL THEN NULL ELSE now() END
+       WHERE id = $1 AND conversation_id = $2 AND status = 'succeeded' RETURNING *`,
+      [req.params.turnId, req.params.id, feedback],
+    );
+    if (!result.rowCount) return sendError(res, 404, "NOT_FOUND", "回复不存在或尚未成功完成。");
+    res.json({ turn: turnJson(result.rows[0]!) });
   });
 
   app.patch("/v1/conversations/:id", async (req, res) => {

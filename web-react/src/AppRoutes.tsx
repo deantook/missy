@@ -4,7 +4,7 @@ import { useAuth } from "./context/AuthContext.tsx";
 import { useRouter } from "./hooks/useRouter.ts";
 import { isDesktopShell } from "./lib/desktop.ts";
 import { AuthPage } from "./pages/AuthPage.tsx";
-import { ChatPlaceholder } from "./pages/ChatPlaceholder.tsx";
+import { ChatPage } from "./pages/ChatPage.tsx";
 import { LandingPage } from "./pages/LandingPage.tsx";
 import { SettingsPlaceholder } from "./pages/SettingsPlaceholder.tsx";
 
@@ -32,5 +32,5 @@ export function AppRoutes() {
   }
 
   if (path === "/settings") return <SettingsPlaceholder navigate={navigate} />;
-  return <ChatPlaceholder />;
+  return <ChatPage />;
 }

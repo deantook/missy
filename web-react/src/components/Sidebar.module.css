@@ -1,0 +1,141 @@
+.sidebar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 22px 14px 14px;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-sidebar);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 9px 23px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.logo span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: white;
+  font-size: 14px;
+}
+
+.newChat {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.history {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  margin-top: 18px;
+}
+
+.historyHeader {
+  margin: 0;
+  padding: 0 10px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.empty {
+  padding: 16px 10px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.item {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.item:hover,
+.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.active {
+  color: var(--color-accent);
+  box-shadow: 0 3px 12px #3331;
+}
+
+.conversation {
+  min-width: 0;
+  padding: 10px 0 10px 11px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 10px;
+}
+
+.more {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+.more:hover {
+  background: color-mix(in srgb, var(--color-border) 45%, transparent);
+}
+
+@media (max-width: 760px) {
+  .sidebar {
+    position: fixed;
+    z-index: 10;
+    inset: 0 auto 0 0;
+    width: 270px;
+    transform: translateX(-105%);
+    transition: transform 0.2s;
+    box-shadow: 20px 0 60px #2223;
+  }
+
+  .open {
+    transform: none;
+  }
+}

@@ -3,10 +3,22 @@
   --color-text: #252622;
   --color-accent: #df604c;
   --color-muted: #70716b;
+  --color-panel: #faf9f6;
+  --color-surface: #fff;
+  --color-sidebar: #eeede7;
+  --color-border: #deddd6;
+  --color-danger: #c74734;
+  --shadow-soft: 0 12px 36px #2a2a241f;
   --font-sans: "DM Sans", "Noto Sans SC", sans-serif;
 }
 html[data-theme="dark"] {
   --color-bg: #171816;
   --color-text: #e7e7e2;
   --color-muted: #a2a39c;
+  --color-panel: #1d1e1b;
+  --color-surface: #252623;
+  --color-sidebar: #20211e;
+  --color-border: #33342f;
+  --color-danger: #f18a79;
+  --shadow-soft: 0 15px 40px #0008;
 }

@@ -1,10 +1,8 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import type { Response } from "express";
 import type { Database } from "./db.ts";
 
 const scrypt = promisify(scryptCallback);
-export const SESSION_COOKIE = "missy_session";
 const SESSION_DAYS = 30;
 
 export type UserRecord = {
@@ -35,42 +33,39 @@ function tokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export function readCookies(header: string | undefined): Record<string, string> {
-  if (!header) return {};
-  return Object.fromEntries(header.split(";").map((part) => {
-    const index = part.indexOf("=");
-    if (index < 0) return [part.trim(), ""];
-    return [part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1))];
-  }));
+export function readBearerToken(authorization: string | undefined): string | null {
+  if (!authorization) return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(authorization.trim());
+  return match?.[1] ?? null;
 }
 
 export async function createSession(database: Database, userId: string): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  await database.query("INSERT INTO auth_sessions(user_id, token_hash, expires_at) VALUES ($1, $2, $3)", [userId, tokenHash(token), expiresAt]);
+  await database.query(
+    "INSERT INTO auth_sessions(user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+    [userId, tokenHash(token), expiresAt],
+  );
   return { token, expiresAt };
 }
 
-export function setSessionCookie(res: Response, token: string, expiresAt: Date, secure: boolean): void {
-  res.cookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", secure, expires: expiresAt, path: "/" });
-}
-
-export function clearSessionCookie(res: Response, secure: boolean): void {
-  res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: "lax", secure, path: "/" });
-}
-
-export async function userFromSession(database: Database, cookieHeader: string | undefined): Promise<UserRecord | null> {
-  const token = readCookies(cookieHeader)[SESSION_COOKIE];
+export async function userFromBearer(
+  database: Database,
+  authorization: string | undefined,
+): Promise<UserRecord | null> {
+  const token = readBearerToken(authorization);
   if (!token) return null;
-  const result = await database.query<UserRecord>(`UPDATE auth_sessions s SET last_seen_at = now()
-    FROM users u WHERE s.token_hash = $1 AND s.expires_at > now() AND u.id = s.user_id
-    RETURNING u.*`, [tokenHash(token)]);
+  const result = await database.query<UserRecord>(
+    `UPDATE auth_sessions s SET last_seen_at = now()
+     FROM users u WHERE s.token_hash = $1 AND s.expires_at > now() AND u.id = s.user_id
+     RETURNING u.*`,
+    [tokenHash(token)],
+  );
   return result.rows[0] ?? null;
 }
 
-export async function deleteCurrentSession(database: Database, cookieHeader: string | undefined): Promise<void> {
-  const token = readCookies(cookieHeader)[SESSION_COOKIE];
-  if (token) await database.query("DELETE FROM auth_sessions WHERE token_hash = $1", [tokenHash(token)]);
+export async function deleteSessionByToken(database: Database, token: string): Promise<void> {
+  await database.query("DELETE FROM auth_sessions WHERE token_hash = $1", [tokenHash(token)]);
 }
 
 export function publicUser(user: UserRecord) {

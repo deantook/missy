@@ -265,14 +265,19 @@ function renderSidebar(): string {
   </aside>`;
 }
 
-function appShellClass(): string {
+function appShellClass(includeDebug = true): string {
   const classes = ["app-shell"];
   if (sidebarCollapsed) classes.push("sidebar-collapsed");
-  if (debugEnabled) {
+  if (debugEnabled && includeDebug) {
     classes.push("has-debug");
     if (debugPanelCollapsed) classes.push("debug-collapsed");
   }
   return classes.join(" ");
+}
+
+function clearDebugTimeline(): void {
+  if (!debugEnabled) return;
+  debugTimeline.clear();
 }
 
 function renderDebugPane(): string {
@@ -292,7 +297,10 @@ function renderDebugPane(): string {
 
 function renderDebugPanel(): void {
   const timeline = document.querySelector<HTMLElement>("#debug-timeline");
-  if (timeline) timeline.innerHTML = debugTimeline.renderHtml(escapeHtml);
+  if (timeline) {
+    timeline.innerHTML = debugTimeline.renderHtml(escapeHtml);
+    timeline.scrollTop = timeline.scrollHeight;
+  }
   const toggle = document.querySelector<HTMLButtonElement>("#debug-toggle");
   if (toggle) toggle.textContent = debugPanelCollapsed ? "展开" : "折叠";
 }
@@ -300,7 +308,7 @@ function renderDebugPanel(): void {
 function bindDebugPanel(): void {
   if (!debugEnabled) return;
   document.querySelector("#debug-clear")?.addEventListener("click", () => {
-    debugTimeline.clear();
+    clearDebugTimeline();
     renderDebugPanel();
   });
   document.querySelector("#debug-toggle")?.addEventListener("click", () => {
@@ -576,7 +584,7 @@ async function loadConversations(): Promise<void> {
 async function createConversation(): Promise<void> {
   try {
     const result = await api<{ conversation: Conversation }>("/v1/conversations", { method: "POST", body: "{}" });
-    conversations.unshift(result.conversation); active = result.conversation; turns = []; renderApp();
+    conversations.unshift(result.conversation); active = result.conversation; turns = []; clearDebugTimeline(); renderApp();
   } catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
 }
 
@@ -584,7 +592,7 @@ async function openConversation(id: string): Promise<void> {
   try {
     const result = await api<{ conversation: Conversation; turns: Turn[] }>(`/v1/conversations/${id}`);
     active = result.conversation; turns = result.turns;
-    if (debugEnabled) debugTimeline.clear();
+    clearDebugTimeline();
     if (currentPath() !== "/") navigate("/");
     else renderApp();
     setTimeout(() => { const el = document.querySelector("#messages"); if (el) el.scrollTop = el.scrollHeight; });
@@ -601,10 +609,8 @@ async function sendMessage(message: string): Promise<void> {
   try {
     await streamApi(`/v1/conversations/${conversationId}/messages`, { message, allowDelete: false, ...(debugEnabled ? { debug: true } : {}) }, (event) => {
       if (event.type === "start") {
-        if (debugEnabled) {
-          debugTimeline.clear();
-          renderDebugPanel();
-        }
+        clearDebugTimeline();
+        renderDebugPanel();
         Object.assign(optimistic, event.turn);
       } else if (event.type === "delta") {
         optimistic.assistantContent = (event.reset ? "" : optimistic.assistantContent ?? "") + event.delta;
@@ -681,7 +687,7 @@ async function deleteConversation(id: string): Promise<void> {
   if (!confirmed) return;
   try {
     await api<void>(`/v1/conversations/${id}`, { method: "DELETE" });
-    if (active?.id === id) { active = null; turns = []; }
+    if (active?.id === id) { active = null; turns = []; clearDebugTimeline(); }
     await loadConversations();
     renderApp();
   } catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
@@ -728,7 +734,7 @@ function renderSettingsContent(): string {
 
 function renderSettingsPage(): void {
   if (!user) return route();
-  root.innerHTML = `<div class="${appShellClass()}">
+  root.innerHTML = `<div class="${appShellClass(false)}">
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
     <main class="settings-pane">
@@ -803,7 +809,7 @@ function bindSettingsForms(): void {
     button.disabled = true;
     try {
       await api<void>("/v1/conversations", { method: "DELETE" });
-      conversations = []; active = null; turns = [];
+      conversations = []; active = null; turns = []; clearDebugTimeline();
       renderSettingsPage();
       showToast("历史会话已清除");
     } catch (error) {

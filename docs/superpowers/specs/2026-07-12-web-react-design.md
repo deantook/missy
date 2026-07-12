@@ -136,6 +136,15 @@ web-react/
 - [ ] `npm run desktop:dev` / `desktop:build` 使用 `web-react`
 - [ ] Bearer、`VITE_API_BASE`、主题防闪烁脚本行为与现网一致
 
+## 模块化硬约束
+
+禁止复刻 `web/src/main.ts` 式庞大单文件：
+
+- `main.tsx` 仅挂载（目标 ≤30 行）
+- `App.tsx` 仅 Providers + 路由出口（目标 ≤100 行）
+- 任意单个 `.ts` / `.tsx` 软上限 200 行；超过 250 行必须再拆
+- 页面只编排；业务进 `hooks` / `api` / `lib` / `context`
+
 ## 明确不做（本阶段）
 
 - 删除或停用 `web/`

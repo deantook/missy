@@ -336,10 +336,37 @@ async function deleteConversation(id: string): Promise<void> {
 
 function renderSettingsContent(): string {
   if (!user) return "";
-  return `<form id="profile-form" class="settings-section"><h3>个人资料</h3><div class="field-row"><label>显示名称<input name="displayName" value="${escapeHtml(user.displayName)}" required maxlength="80"></label><label>邮箱<input name="email" type="email" value="${escapeHtml(user.email)}" required></label></div><button class="secondary" type="submit">保存资料</button></form>
-    <form id="token-form" class="settings-section"><h3>Dida MCP Token <span class="token-status ${user.didaTokenConfigured ? "ok" : ""}">${user.didaTokenConfigured ? `已连接 ${escapeHtml(user.didaTokenHint)}` : "未配置"}</span></h3><p>Token 将按账户独立保存，接口不会返回完整内容。</p><label>新 Token<input name="token" type="password" minlength="8" placeholder="粘贴 Dida MCP Token" required></label><button class="secondary" type="submit">验证并保存</button></form>
-    <form id="password-form" class="settings-section"><h3>修改密码</h3><div class="field-row"><label>当前密码<input name="currentPassword" type="password" required></label><label>新密码<input name="newPassword" type="password" minlength="8" required></label></div><button class="secondary" type="submit">更新密码</button></form>
-    <div class="settings-section danger-zone"><h3>账户操作</h3><div><button id="logout" class="secondary">退出登录</button><button id="delete-account" class="danger-button">注销账户</button></div></div>`;
+  const initial = escapeHtml(user.displayName.slice(0, 1).toUpperCase());
+  const icon = (path: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`;
+  return `<section class="account-summary">
+      <div class="account-summary-avatar">${initial}</div>
+      <div><strong>${escapeHtml(user.displayName)}</strong><span>${escapeHtml(user.email)}</span></div>
+      <div class="account-summary-status"><i></i>账户正常</div>
+    </section>
+    <div class="settings-grid">
+      <form id="profile-form" class="settings-section profile-settings">
+        <div class="section-heading"><span class="section-icon">${icon("M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z")}</span><div><h3>个人资料</h3><p>管理你的公开名称和登录邮箱</p></div></div>
+        <div class="settings-fields"><label>显示名称<input name="displayName" value="${escapeHtml(user.displayName)}" required maxlength="80" autocomplete="name"></label><label>邮箱地址<input name="email" type="email" value="${escapeHtml(user.email)}" required autocomplete="email"></label></div>
+        <div class="section-actions"><button class="primary compact" type="submit">保存更改</button></div>
+      </form>
+      <form id="password-form" class="settings-section password-settings">
+        <div class="section-heading"><span class="section-icon">${icon("M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v8H4v-8a2 2 0 0 1 2-2Zm6 4v3")}</span><div><h3>登录安全</h3><p>定期更新密码，保护账户安全</p></div></div>
+        <div class="settings-fields"><label>当前密码<input name="currentPassword" type="password" required autocomplete="current-password" placeholder="输入当前密码"></label><label>新密码<input name="newPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="至少 8 位字符"></label></div>
+        <div class="section-actions"><button class="secondary compact" type="submit">更新密码</button></div>
+      </form>
+      <form id="token-form" class="settings-section token-settings">
+        <div class="section-heading"><span class="section-icon token-icon">${icon("M15 7a4 4 0 1 0-3.7 5.5L3 20.8V22h3l1.5-1.5L9 22l2-2-1.5-1.5 4.2-4.2A4 4 0 0 0 15 7Z")}</span><div><div class="heading-line"><h3>Dida MCP Token</h3><span class="token-status ${user.didaTokenConfigured ? "ok" : ""}"><i></i>${user.didaTokenConfigured ? "已连接" : "未配置"}</span></div><p>连接滴答清单，让 Missy 可以安全地管理你的任务</p></div></div>
+        <div class="token-body">
+          <label>${user.didaTokenConfigured ? "替换 Token" : "添加 Token"}<span class="token-input-wrap"><input name="token" type="password" minlength="8" placeholder="粘贴 Dida MCP Token" required autocomplete="off"><small>${user.didaTokenConfigured ? escapeHtml(user.didaTokenHint) : "安全加密保存"}</small></span></label>
+          <button class="primary compact" type="submit">验证并保存</button>
+        </div>
+        <p class="privacy-note">${icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z")}Token 按账户独立保存，任何接口都不会返回完整内容。</p>
+      </form>
+      <section class="settings-section account-actions">
+        <div><h3>账户操作</h3><p>退出当前设备，或永久删除账户及所有数据。</p></div>
+        <div><button id="logout" class="text-button" type="button">退出登录</button><button id="delete-account" class="danger-button compact" type="button">注销账户</button></div>
+      </section>
+    </div>`;
 }
 
 function renderSettingsPage(): void {
@@ -347,8 +374,8 @@ function renderSettingsPage(): void {
   root.innerHTML = `<div class="${appShellClass()}">
     ${renderSidebar()}
     <main class="settings-pane">
-      <header class="settings-header">${sidebarToggle()}<button id="back-to-chat" class="back-link" type="button">← 返回对话</button><div><p class="eyebrow">ACCOUNT</p><h2>账户设置</h2></div><div class="header-actions">${profileAvatar(true)}</div></header>
-      <div class="settings-content">${renderSettingsContent()}</div>
+      <header class="settings-header">${sidebarToggle()}<button id="back-to-chat" class="back-link" type="button"><span>←</span> 返回对话</button><div class="header-actions">${profileAvatar(true)}</div></header>
+      <div class="settings-content"><div class="settings-intro"><p class="eyebrow">ACCOUNT SETTINGS</p><h1>账户设置</h1><p>管理你的个人资料、服务连接与账户安全。</p></div>${renderSettingsContent()}</div>
     </main></div>`;
   renderConversationList();
   bindSettingsPageEvents();

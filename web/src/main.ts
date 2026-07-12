@@ -26,6 +26,41 @@ let user: User | null = null;
 let conversations: Conversation[] = [];
 let active: Conversation | null = null;
 let turns: Turn[] = [];
+
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
+const authTokenStorageKey = "missy.authToken";
+
+function apiUrl(path: string): string {
+  return `${API_BASE}${path}`;
+}
+
+function readAuthToken(): string | null {
+  try { return localStorage.getItem(authTokenStorageKey); }
+  catch { return null; }
+}
+
+function writeAuthToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(authTokenStorageKey, token);
+    else localStorage.removeItem(authTokenStorageKey);
+  } catch { /* ignore quota / private mode */ }
+}
+
+function authHeaders(extra: HeadersInit = {}): HeadersInit {
+  const headers = new Headers(extra);
+  const token = readAuthToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
+
+function clearSessionState(): void {
+  writeAuthToken(null);
+  user = null;
+  conversations = [];
+  active = null;
+  turns = [];
+}
+
 let pending = false;
 let dismissedChoiceTurnId: string | null = null;
 const sidebarStorageKey = "missy.sidebarCollapsed";
@@ -80,11 +115,13 @@ function renderMarkdown(value: string): string {
 }
 
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetch(apiUrl(url), {
     ...options,
-    credentials: "same-origin",
-    headers: options.body ? { "Content-Type": "application/json", ...options.headers } : options.headers,
+    headers: options.body
+      ? authHeaders({ "Content-Type": "application/json", ...options.headers as Record<string, string> })
+      : authHeaders(options.headers),
   });
+  if (response.status === 401) clearSessionState();
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(data.error?.message || `请求失败（${response.status}）`);
@@ -92,12 +129,12 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
 }
 
 async function streamApi(url: string, body: unknown, onEvent: (event: StreamEvent) => void): Promise<void> {
-  const response = await fetch(url, {
+  const response = await fetch(apiUrl(url), {
     method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+    headers: authHeaders({ "Content-Type": "application/json", Accept: "application/x-ndjson" }),
     body: JSON.stringify(body),
   });
+  if (response.status === 401) clearSessionState();
   if (!response.ok) {
     const data = await response.json().catch(() => ({})) as { error?: { message?: string } };
     throw new Error(data.error?.message || `请求失败（${response.status}）`);
@@ -240,7 +277,8 @@ function renderAuth(mode: "login" | "register" = "login"): void {
     const data = Object.fromEntries(new FormData(form));
     button.disabled = true;
     try {
-      const result = await api<{ user: User }>(`/v1/auth/${registering ? "register" : "login"}`, { method: "POST", body: JSON.stringify(data) });
+      const result = await api<{ user: User; token: string }>(`/v1/auth/${registering ? "register" : "login"}`, { method: "POST", body: JSON.stringify(data) });
+      writeAuthToken(result.token);
       user = result.user;
       await loadConversations();
       history.replaceState(null, "", "/");
@@ -647,6 +685,11 @@ async function sendMessage(message: string): Promise<void> {
     });
     await loadConversations(); active = conversations.find((item) => item.id === conversationId) ?? active;
   } catch (error) {
+    if (!readAuthToken()) {
+      history.replaceState(null, "", "/");
+      renderHome();
+      return;
+    }
     optimistic.status = "failed"; optimistic.errorMessage = error instanceof Error ? error.message : String(error);
   } finally { pending = false; renderApp(); }
 }
@@ -827,8 +870,8 @@ function bindSettingsForms(): void {
     }
   });
   document.querySelector("#logout")!.addEventListener("click", async () => {
-    await api<void>("/v1/auth/logout", { method: "POST" });
-    user = null; conversations = []; active = null; turns = [];
+    try { await api<void>("/v1/auth/logout", { method: "POST" }); } catch { /* always clear local session */ }
+    clearSessionState();
     history.replaceState(null, "", "/");
     renderHome();
   });
@@ -836,7 +879,7 @@ function bindSettingsForms(): void {
     const password = prompt("注销会永久删除所有会话。请输入当前密码确认："); if (!password) return;
     try {
       await api<void>("/v1/me", { method: "DELETE", body: JSON.stringify({ password }) });
-      user = null; conversations = []; active = null; turns = [];
+      clearSessionState();
       history.replaceState(null, "", "/");
       renderHome();
     }
@@ -852,6 +895,11 @@ async function bootstrap(): Promise<void> {
   window.addEventListener("blur", hideContextMenu);
   window.addEventListener("popstate", () => route());
   root.innerHTML = '<div class="boot"><div class="brand-mark">✦</div><p>正在载入 Missy…</p></div>';
+  if (!readAuthToken()) {
+    user = null;
+    route();
+    return;
+  }
   try {
     user = (await api<{ user: User }>("/v1/me")).user;
     await loadConversations();
@@ -859,7 +907,7 @@ async function bootstrap(): Promise<void> {
     else if (conversations[0]) await openConversation(conversations[0].id);
     else renderApp();
   } catch {
-    user = null;
+    clearSessionState();
     route();
   }
 }

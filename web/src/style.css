@@ -60,6 +60,8 @@
 .debug-header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #2e2f2b;flex-shrink:0}
 .debug-header strong{font-size:13px;color:#ecece8}
 .debug-badge,.chat-debug-badge{padding:2px 6px;border-radius:4px;background:#df604c33;color:#f09080;font-size:9px;font-weight:700;letter-spacing:.06em}
+.chat-debug-badge{border:0;cursor:pointer}
+.chat-debug-badge:hover{background:#df604c55;color:#ffb0a0}
 .chat-header .header-actions{width:auto;gap:8px}
 .debug-actions{display:flex;gap:6px;margin-left:auto}
 .debug-actions button{padding:4px 8px;border:1px solid #3a3b36;border-radius:6px;background:#2a2b27;color:#b8b9b3;font-size:11px;font-weight:600}

@@ -280,6 +280,19 @@ function clearDebugTimeline(): void {
   debugTimeline.clear();
 }
 
+function setDebugPanelCollapsed(collapsed: boolean): void {
+  debugPanelCollapsed = collapsed;
+  document.querySelector(".app-shell")?.classList.toggle("debug-collapsed", collapsed);
+  try { localStorage.setItem(debugPanelStorageKey, String(collapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
+  const toggle = document.querySelector<HTMLButtonElement>("#debug-toggle");
+  if (toggle) toggle.textContent = collapsed ? "展开" : "折叠";
+  const badge = document.querySelector<HTMLButtonElement>("#chat-debug-badge");
+  if (badge) {
+    badge.title = collapsed ? "展开调试面板" : "折叠调试面板";
+    badge.setAttribute("aria-pressed", String(!collapsed));
+  }
+}
+
 function renderDebugPane(): string {
   if (!debugEnabled) return "";
   return `<aside class="debug-pane" aria-label="调试面板">
@@ -301,8 +314,7 @@ function renderDebugPanel(): void {
     timeline.innerHTML = debugTimeline.renderHtml(escapeHtml);
     timeline.scrollTop = timeline.scrollHeight;
   }
-  const toggle = document.querySelector<HTMLButtonElement>("#debug-toggle");
-  if (toggle) toggle.textContent = debugPanelCollapsed ? "展开" : "折叠";
+  setDebugPanelCollapsed(debugPanelCollapsed);
 }
 
 function bindDebugPanel(): void {
@@ -311,12 +323,9 @@ function bindDebugPanel(): void {
     clearDebugTimeline();
     renderDebugPanel();
   });
-  document.querySelector("#debug-toggle")?.addEventListener("click", () => {
-    debugPanelCollapsed = !debugPanelCollapsed;
-    document.querySelector(".app-shell")!.classList.toggle("debug-collapsed", debugPanelCollapsed);
-    try { localStorage.setItem(debugPanelStorageKey, String(debugPanelCollapsed)); } catch { /* 状态记忆不可用时仍保留本次交互 */ }
-    renderDebugPanel();
-  });
+  const toggleCollapsed = () => setDebugPanelCollapsed(!debugPanelCollapsed);
+  document.querySelector("#debug-toggle")?.addEventListener("click", toggleCollapsed);
+  document.querySelector("#chat-debug-badge")?.addEventListener("click", toggleCollapsed);
 }
 
 function sidebarEdgeToggle(): string {
@@ -375,7 +384,7 @@ function renderApp(): void {
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
     <main class="chat-pane">
-      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${debugEnabled ? '<span class="chat-debug-badge">DEBUG</span>' : ""}${profileAvatar()}</div></header>
+      <header class="chat-header">${headerSidebarOpen()}<div><h2>${escapeHtml(active?.title ?? "新对话")}</h2></div><div class="header-actions">${debugEnabled ? `<button id="chat-debug-badge" class="chat-debug-badge" type="button" title="${debugPanelCollapsed ? "展开调试面板" : "折叠调试面板"}" aria-pressed="${!debugPanelCollapsed}">DEBUG</button>` : ""}${profileAvatar()}</div></header>
       <section id="messages" class="messages">${renderMessages()}</section>
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
@@ -799,13 +808,13 @@ function bindSettingsForms(): void {
     return null;
   });
   document.querySelector("#clear-conversations")!.addEventListener("click", async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
     const confirmed = await showConfirmDialog({
       title: "清除全部历史会话？",
       message: "所有历史会话都将从会话列表中移除，此操作无法撤销。",
       confirmLabel: "全部清除",
     });
     if (!confirmed) return;
-    const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;
     try {
       await api<void>("/v1/conversations", { method: "DELETE" });

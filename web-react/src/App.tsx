@@ -4,16 +4,19 @@ import { AuthProvider } from "./context/AuthContext.tsx";
 import { ChatProvider } from "./context/ChatContext.tsx";
 import { AppRoutes } from "./AppRoutes.tsx";
 import { ToastHost } from "./components/ToastHost.tsx";
+import { ConfirmProvider } from "./hooks/useConfirm.ts";
 
 export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-          <ChatProvider>
-            <AppRoutes />
-            <ToastHost />
-          </ChatProvider>
+          <ConfirmProvider>
+            <ChatProvider>
+              <AppRoutes />
+              <ToastHost />
+            </ChatProvider>
+          </ConfirmProvider>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>

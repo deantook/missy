@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "../components/AppShell.tsx";
+import { ChoiceDialog } from "../components/ChoiceDialog.tsx";
 import { Composer } from "../components/Composer.tsx";
 import { MessageList } from "../components/MessageList.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
 import { useChat } from "../context/ChatContext.tsx";
 import { useRouter } from "../hooks/useRouter.ts";
+import { parseChoicePrompt } from "../lib/choice-prompt.ts";
 import styles from "./ChatPage.module.css";
 
 export function ChatPage() {
@@ -23,6 +25,7 @@ export function ChatPage() {
   } = useChat();
   const requestedLoad = useRef(false);
   const openingId = useRef<string | null>(null);
+  const [dismissedChoiceTurnId, setDismissedChoiceTurnId] = useState<string | null>(null);
 
   useEffect(() => {
     if (conversations.length > 0 || requestedLoad.current) return;
@@ -42,6 +45,26 @@ export function ChatPage() {
   const didaReady = Boolean(user?.didaTokenConfigured);
   const title = active?.title ?? "新聊天";
   const profileLabel = user?.displayName?.slice(0, 1).toUpperCase() || "M";
+  const pendingChoice = useMemo(() => {
+    const turn = [...turns].reverse().find((item) => item.status === "succeeded");
+    if (!turn || turn.id === dismissedChoiceTurnId) return null;
+    const prompt = parseChoicePrompt(turn.assistantContent);
+    return prompt ? { turn, prompt } : null;
+  }, [dismissedChoiceTurnId, turns]);
+
+  const focusComposer = () => {
+    window.setTimeout(() => document.querySelector<HTMLTextAreaElement>("textarea")?.focus(), 0);
+  };
+
+  const dismissChoice = () => {
+    if (pendingChoice) setDismissedChoiceTurnId(pendingChoice.turn.id);
+    focusComposer();
+  };
+
+  const submitChoice = (message: string) => {
+    dismissChoice();
+    void sendMessage(message);
+  };
 
   return (
     <AppShell>
@@ -83,6 +106,13 @@ export function ChatPage() {
         setTurnFeedback={setTurnFeedback}
       />
       <Composer pending={pending} didaTokenConfigured={didaReady} sendMessage={sendMessage} />
+      {pendingChoice ? (
+        <ChoiceDialog
+          prompt={pendingChoice.prompt}
+          onDismiss={dismissChoice}
+          onSubmit={submitChoice}
+        />
+      ) : null}
     </AppShell>
   );
 }

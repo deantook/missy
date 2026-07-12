@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useChat } from "../context/ChatContext.tsx";
+import { useConfirm } from "../hooks/useConfirm.ts";
 import type { Conversation } from "../types.ts";
 import { ConversationMenu } from "./ConversationMenu.tsx";
 import styles from "./Sidebar.module.css";
@@ -24,6 +25,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
     renameConversation,
     deleteConversation,
   } = useChat();
+  const confirm = useConfirm();
   const [menu, setMenu] = useState<MenuState>(null);
 
   const rename = (conversation: Conversation) => {
@@ -31,8 +33,13 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
     if (title) void renameConversation(conversation.id, title);
   };
 
-  const remove = (conversation: Conversation) => {
-    if (window.confirm(`删除会话「${conversation.title}」？`)) void deleteConversation(conversation.id);
+  const remove = async (conversation: Conversation) => {
+    const ok = await confirm({
+      title: "删除会话",
+      message: `确定删除会话「${conversation.title}」？此操作无法撤销。`,
+      confirmLabel: "删除",
+    });
+    if (ok) await deleteConversation(conversation.id);
   };
 
   return (
@@ -91,7 +98,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             setMenu(null);
           }}
           onDelete={() => {
-            remove(menu.conversation);
+            void remove(menu.conversation);
             setMenu(null);
           }}
         />

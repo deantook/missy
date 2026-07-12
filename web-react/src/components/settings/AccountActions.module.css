@@ -1,0 +1,65 @@
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.card p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 9px;
+}
+
+.card button {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.card button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.card .danger {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  color: var(--color-danger);
+}
+
+@media (max-width: 760px) {
+  .card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+}

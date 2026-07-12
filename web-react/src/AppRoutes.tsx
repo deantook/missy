@@ -6,7 +6,7 @@ import { isDesktopShell } from "./lib/desktop.ts";
 import { AuthPage } from "./pages/AuthPage.tsx";
 import { ChatPage } from "./pages/ChatPage.tsx";
 import { LandingPage } from "./pages/LandingPage.tsx";
-import { SettingsPlaceholder } from "./pages/SettingsPlaceholder.tsx";
+import { SettingsPage } from "./pages/SettingsPage.tsx";
 
 export function AppRoutes() {
   const { path, navigate } = useRouter();
@@ -31,6 +31,6 @@ export function AppRoutes() {
     return <LandingPage navigate={navigate} />;
   }
 
-  if (path === "/settings") return <SettingsPlaceholder navigate={navigate} />;
+  if (path === "/settings") return <SettingsPage />;
   return <ChatPage />;
 }

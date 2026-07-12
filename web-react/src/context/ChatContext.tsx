@@ -143,6 +143,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       clearDebug();
     } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), true);
+      throw error;
     }
   }, [clearDebug, showToast]);
 

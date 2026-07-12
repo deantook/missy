@@ -41,7 +41,7 @@ NDJSON: start | delta | debug* | done | error
 
 ## 启动与前端开关
 
-1. 扩展 `web/vite.config.ts`：解析 CLI `--debug`，通过 `define` 或 `env` 注入 `VITE_DEBUG="true"`
+1. 扩展 `web/vite.config.ts`：解析 `process.argv` 中的 `--debug`，用 Vite `define` 将 `import.meta.env.VITE_DEBUG` 设为 `"true"`（未传则为 `"false"`）
 2. `package.json` 的 `web` 脚本保持不变；用法为 `npm run web -- --debug`
 3. 前端以 `import.meta.env.VITE_DEBUG === "true"` 判定调试模式
 4. 调试模式下：
@@ -118,7 +118,8 @@ type DebugEvent =
 ### `ChatService`
 
 - `send` / `execute` 接受 `debug?: boolean` 与 `onDebug`
-- 将 `onDebug` 传入 runner / MCP；失败时在 debug 模式下保留原始 Error 供上层序列化 stack/cause
+- 将 `onDebug` 传入 runner / MCP
+- `AgentRunError`（或等价包装）须保留 `stack`，并用 `cause` 挂上原始错误，供 http 层在 debug 模式下序列化
 - `error_message` 落库仍只用简洁 `message`，不存 stack
 
 ### `http.ts`（`POST .../messages`）

@@ -30,7 +30,7 @@ export class ChatService {
     private readonly runner: RunTurn = runAgentTurn,
   ) {}
 
-  async send(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean } & StreamCallbacks) {
+  async send(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean; debug?: boolean } & StreamCallbacks) {
     const previous = this.queues.get(params.conversationId) ?? Promise.resolve();
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -45,7 +45,7 @@ export class ChatService {
     }
   }
 
-  private async execute(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean } & StreamCallbacks) {
+  private async execute(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean; debug?: boolean } & StreamCallbacks) {
     const conversation = await this.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL", [params.conversationId, params.userId]);
     if (!conversation.rowCount) throw Object.assign(new Error("会话不存在。"), { status: 404, code: "NOT_FOUND" });
     const turn = await this.database.query<{ id: string; created_at: string }>("INSERT INTO chat_turns(conversation_id, user_content) VALUES ($1, $2) RETURNING id, created_at", [params.conversationId, params.message]);
@@ -76,7 +76,8 @@ export class ChatService {
       if (error instanceof AgentRunError) usage = error.usage;
       const message = error instanceof Error ? error.message : String(error);
       await this.fail(turnId, params.conversationId, message, usage);
-      throw Object.assign(new Error(message), { status: 502, code: "AGENT_ERROR" });
+      const wrapped = error instanceof Error ? error : new Error(message);
+      throw Object.assign(wrapped, { status: 502, code: "AGENT_ERROR", message });
     }
   }
 

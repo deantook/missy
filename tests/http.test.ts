@@ -167,6 +167,91 @@ describe("multi-user HTTP API", () => {
     expect(loaded.body.turns[0]).toMatchObject({ assistantContent: "流式完成：测试", status: "succeeded" });
   });
 
+  it("streams debug events when debug is true and omits them otherwise", async () => {
+    const agent = request.agent(app());
+    const login = await agent.post("/v1/auth/login").send({ email: emails[0], password: "newpassword123" }).expect(200);
+    const created = await agent.post("/v1/conversations").send({}).expect(201);
+    const id = created.body.conversation.id as string;
+    const cookie = login.headers["set-cookie"]?.[0];
+
+    const debugRunner: RunTurn = async ({ message, onToken, onDebug }) => {
+      await onDebug?.({ kind: "mcp", action: "cache_hit" });
+      await onDebug?.({ kind: "tool_call", name: "list_tasks", args: { q: "1" }, id: "t1" });
+      await onToken?.("ok");
+      return { message: `dbg:${message}`, usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 } };
+    };
+    const debugApp = createHttpApp({
+      database, model: "test:model", dida365McpUrl: "https://example.test", mcpManager: mcp, runTurn: debugRunner,
+    });
+
+    const withDebug = await request(debugApp)
+      .post(`/v1/conversations/${id}/messages`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/x-ndjson")
+      .send({ message: "带调试", debug: true })
+      .expect(200);
+    const debugTypes = withDebug.text.trim().split("\n").map((line) => JSON.parse(line).type);
+    expect(debugTypes).toContain("debug");
+    expect(withDebug.text).toContain('"kind":"tool_call"');
+
+    const created2 = await agent.post("/v1/conversations").send({}).expect(201);
+    const without = await request(debugApp)
+      .post(`/v1/conversations/${created2.body.conversation.id}/messages`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/x-ndjson")
+      .send({ message: "不调试" })
+      .expect(200);
+    expect(without.text).not.toContain('"type":"debug"');
+  });
+
+  it("includes stack on streamed errors only when debug is true", async () => {
+    const agent = request.agent(app());
+    const login = await agent.post("/v1/auth/login").send({ email: emails[0], password: "newpassword123" }).expect(200);
+    const created = await agent.post("/v1/conversations").send({}).expect(201);
+    const id = created.body.conversation.id as string;
+    const cookie = login.headers["set-cookie"]?.[0];
+
+    const failing: RunTurn = async ({ onDebug }) => {
+      await onDebug?.({ kind: "note", message: "即将失败" });
+      throw new AgentRunError("模型中断", { inputTokens: 1, outputTokens: 0, totalTokens: 1 }, {
+        cause: new Error("upstream"),
+      });
+    };
+    const failingApp = createHttpApp({
+      database, model: "test:model", dida365McpUrl: "https://example.test", mcpManager: mcp, runTurn: failing,
+    });
+
+    const debugFail = await request(failingApp)
+      .post(`/v1/conversations/${id}/messages`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/x-ndjson")
+      .send({ message: "失败", debug: true })
+      .expect(200);
+    const debugError = debugFail.text.trim().split("\n").map((line) => JSON.parse(line)).find((e) => e.type === "error");
+    expect(debugError.error.stack).toContain("AgentRunError");
+    expect(debugError.error.cause).toContain("upstream");
+
+    const created2 = await agent.post("/v1/conversations").send({}).expect(201);
+    const plainFail = await request(failingApp)
+      .post(`/v1/conversations/${created2.body.conversation.id}/messages`)
+      .set("Cookie", cookie)
+      .set("Accept", "application/x-ndjson")
+      .send({ message: "失败2" })
+      .expect(200);
+    const plainError = plainFail.text.trim().split("\n").map((line) => JSON.parse(line)).find((e) => e.type === "error");
+    expect(plainError.error).toEqual({ code: "AGENT_ERROR", message: "模型中断" });
+  });
+
+  it("rejects non-boolean debug field", async () => {
+    const agent = request.agent(app());
+    await agent.post("/v1/auth/login").send({ email: emails[0], password: "newpassword123" }).expect(200);
+    await agent.put("/v1/me/dida-token").send({ token: "valid-token-1234" }).expect(200);
+    const created = await agent.post("/v1/conversations").send({}).expect(201);
+    await agent.post(`/v1/conversations/${created.body.conversation.id}/messages`)
+      .send({ message: "x", debug: "yes" })
+      .expect(400);
+  });
+
   it("deletes an account and cascades its sessions", async () => {
     const agent = request.agent(app());
     await agent.post("/v1/auth/login").send({ email: emails[1], password: "password123" }).expect(200);

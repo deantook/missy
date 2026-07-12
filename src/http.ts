@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { Database } from "./db.ts";
 import { databaseReady } from "./db.ts";
 import { ChatService, type RunTurn } from "./chat-service.ts";
+import { serializeDebugError } from "./debug-events.ts";
 import { UserMcpManager } from "./agent-runtime.ts";
 import {
   clearSessionCookie, createSession, deleteCurrentSession, hashPassword, publicUser,
@@ -272,6 +273,8 @@ export function createHttpApp(params: {
     const body = bodyOf(req);
     const message = textField(body, "message", { min: 1, max: 4000 })!;
     if (body.allowDelete !== undefined && typeof body.allowDelete !== "boolean") return sendError(res, 400, "INVALID_REQUEST", "allowDelete 必须是布尔值。");
+    if (body.debug !== undefined && typeof body.debug !== "boolean") return sendError(res, 400, "INVALID_REQUEST", "debug 必须是布尔值。");
+    const debug = body.debug === true;
     const stream = req.header("accept")?.split(",").some((value) => value.trim().split(";")[0] === "application/x-ndjson") === true;
     if (!stream) {
       const turn = await chat.send({ userId: user.id, didaToken: user.dida_mcp_token, conversationId: req.params.id!, message, allowDelete: body.allowDelete === true });
@@ -295,12 +298,13 @@ export function createHttpApp(params: {
           write({ type: "start", turn: pendingTurn });
         },
         onDelta: (delta, reset) => write({ type: "delta", delta, reset: reset === true }),
+        onDebug: debug ? (event) => write({ type: "debug", event }) : undefined,
       });
       write({ type: "done", turn });
     } catch (error) {
       const details = error as { message?: string; code?: string };
       if (!res.headersSent) throw error;
-      write({ type: "error", error: { code: details.code ?? "AGENT_ERROR", message: details.message ?? "请求失败。" } });
+      write({ type: "error", error: serializeDebugError(error, details.code ?? "AGENT_ERROR", debug) });
     } finally {
       if (!res.writableEnded) res.end();
     }

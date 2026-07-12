@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         return;
       }
-      const me = await api<User>("/v1/me");
+      const { user: me } = await api<{ user: User }>("/v1/me");
       setUser(me);
     } catch {
       clearSession();

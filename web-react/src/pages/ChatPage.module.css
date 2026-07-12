@@ -50,6 +50,23 @@
   font-weight: 700;
 }
 
+.debugBadge {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: #df604c33;
+  color: #f09080;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.debugBadge:hover {
+  background: #df604c55;
+  color: #ffb0a0;
+}
+
 .banner {
   display: grid;
   grid-template-columns: 34px 1fr auto;

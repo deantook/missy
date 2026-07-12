@@ -12,9 +12,23 @@ function storedCollapsed(): boolean {
   }
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+type AppShellProps = {
+  children: ReactNode;
+  debug?: ReactNode;
+  debugCollapsed?: boolean;
+};
+
+export function AppShell({ children, debug, debugCollapsed = false }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(storedCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const shellClass = [
+    styles.shell,
+    collapsed ? styles.collapsed : "",
+    debug ? styles.hasDebug : "",
+    debugCollapsed ? styles.debugCollapsed : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     try {
@@ -25,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [collapsed]);
 
   return (
-    <div className={`${styles.shell} ${collapsed ? styles.collapsed : ""}`}>
+    <div className={shellClass}>
       <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
       {mobileOpen ? (
         <button className={styles.scrim} type="button" aria-label="关闭侧栏" onClick={() => setMobileOpen(false)} />
@@ -47,6 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {collapsed ? "›" : "‹"}
       </button>
       <main className={styles.main}>{children}</main>
+      {debug}
     </div>
   );
 }

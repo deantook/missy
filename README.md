@@ -29,16 +29,17 @@ cp .env.example .env
 npm run db:migrate
 ```
 
-开发时分别启动后端和前端：
+开发时分别启动后端和前端（两个前端择一）：
 
 ```bash
 npm run serve
-npm run web
+npm run web          # vanilla，http://127.0.0.1:5173
+npm run web:react    # React，http://127.0.0.1:5174
 ```
 
-访问 `http://127.0.0.1:5173`。注册后在账户设置中填写自己的 Dida MCP Token。
+注册后在账户设置中填写自己的 Dida MCP Token。
 
-生产运行：
+生产运行（Express 默认托管 `web/dist`）：
 
 ```bash
 npm run web:build
@@ -49,7 +50,7 @@ NODE_ENV=production npm run serve
 
 ## 桌面端（Tauri）
 
-与 Web 共用 `web/` 前端。桌面壳不内嵌后端，连接远程（或本地）HTTP API。
+桌面端使用 `web-react/` 前端（开发时 `http://127.0.0.1:5174`，构建产物 `web-react/dist`）。vanilla `web/` 仍可通过 `npm run web` 在浏览器开发。桌面壳不内嵌后端，连接远程（或本地）HTTP API。
 
 要求：Node 20+、Rust（[rustup](https://rustup.rs)）、各平台 Tauri 系统依赖见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
 
@@ -60,7 +61,7 @@ npm run serve
 npm run desktop:dev
 ```
 
-打包（将 API 地址写入前端构建）：
+打包（将 API 地址写入前端构建，产物为 `web-react/dist`；亦可先执行 `npm run web:react:build`）：
 
 ```bash
 VITE_API_BASE=https://your-api.example.com npm run desktop:build

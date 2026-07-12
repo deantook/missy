@@ -121,8 +121,14 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
       ? authHeaders({ "Content-Type": "application/json", ...options.headers as Record<string, string> })
       : authHeaders(options.headers),
   });
-  if (response.status === 401) clearSessionState();
   if (response.status === 204) return undefined as T;
+  if (response.status === 401) {
+    const data = await response.json().catch(() => ({})) as { error?: { message?: string; code?: string } };
+    if (data.error?.code === "UNAUTHORIZED" || !data.error?.code) {
+      clearSessionState();
+    }
+    throw new Error(data.error?.message || `请求失败（${response.status}）`);
+  }
   const data = await response.json().catch(() => ({})) as T & { error?: { message?: string } };
   if (!response.ok) throw new Error(data.error?.message || `请求失败（${response.status}）`);
   return data;
@@ -134,9 +140,11 @@ async function streamApi(url: string, body: unknown, onEvent: (event: StreamEven
     headers: authHeaders({ "Content-Type": "application/json", Accept: "application/x-ndjson" }),
     body: JSON.stringify(body),
   });
-  if (response.status === 401) clearSessionState();
   if (!response.ok) {
-    const data = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    const data = await response.json().catch(() => ({})) as { error?: { message?: string; code?: string } };
+    if (response.status === 401 && (data.error?.code === "UNAUTHORIZED" || !data.error?.code)) {
+      clearSessionState();
+    }
     throw new Error(data.error?.message || `请求失败（${response.status}）`);
   }
   if (!response.body) throw new Error("浏览器不支持流式响应。");

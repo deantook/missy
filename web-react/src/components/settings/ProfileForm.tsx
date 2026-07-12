@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext.tsx";
 import { useToast } from "../../context/ToastContext.tsx";
 import type { User } from "../../types.ts";
 import { validateProfileSettings } from "./validation.ts";
-import styles from "./ProfileForm.module.css";
+import styles from "./settingsShared.module.css";
 
 export function ProfileForm() {
   const { user, setUser } = useAuth();
@@ -28,7 +28,6 @@ export function ProfileForm() {
       showToast(error, true);
       return;
     }
-
     setSaving(true);
     try {
       const result = await api<{ user: User }>("/v1/me", {
@@ -37,8 +36,8 @@ export function ProfileForm() {
       });
       setUser(result.user);
       showToast("保存成功");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), true);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), true);
     } finally {
       setSaving(false);
     }
@@ -47,8 +46,15 @@ export function ProfileForm() {
   return (
     <form className={styles.card} onSubmit={submit} noValidate>
       <div className={styles.heading}>
-        <span>个人资料</span>
-        <p>管理你的公开名称和登录邮箱</p>
+        <span className={styles.icon}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+          </svg>
+        </span>
+        <div>
+          <h3>个人资料</h3>
+          <p>管理你的公开名称和登录邮箱</p>
+        </div>
       </div>
       <div className={styles.fields}>
         <label>
@@ -73,9 +79,11 @@ export function ProfileForm() {
           />
         </label>
       </div>
-      <button type="submit" disabled={saving}>
-        保存更改
-      </button>
+      <div className={styles.actions}>
+        <button className={styles.primary} type="submit" disabled={saving}>
+          保存更改
+        </button>
+      </div>
     </form>
   );
 }

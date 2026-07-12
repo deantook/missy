@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../../api/client.ts";
 import { useToast } from "../../context/ToastContext.tsx";
 import { validatePasswordSettings } from "./validation.ts";
-import styles from "./PasswordForm.module.css";
+import styles from "./settingsShared.module.css";
 
 export function PasswordForm() {
   const { showToast } = useToast();
@@ -17,7 +17,6 @@ export function PasswordForm() {
       showToast(error, true);
       return;
     }
-
     setSaving(true);
     try {
       await api<void>("/v1/me/password", {
@@ -27,8 +26,8 @@ export function PasswordForm() {
       setCurrentPassword("");
       setNewPassword("");
       showToast("保存成功");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), true);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), true);
     } finally {
       setSaving(false);
     }
@@ -37,8 +36,15 @@ export function PasswordForm() {
   return (
     <form className={styles.card} onSubmit={submit} noValidate>
       <div className={styles.heading}>
-        <span>登录安全</span>
-        <p>定期更新密码，保护账户安全</p>
+        <span className={styles.icon}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v8H4v-8a2 2 0 0 1 2-2Zm6 4v3" />
+          </svg>
+        </span>
+        <div>
+          <h3>登录安全</h3>
+          <p>定期更新密码，保护账户安全</p>
+        </div>
       </div>
       <div className={styles.fields}>
         <label>
@@ -64,9 +70,11 @@ export function PasswordForm() {
           />
         </label>
       </div>
-      <button type="submit" disabled={saving}>
-        更新密码
-      </button>
+      <div className={styles.actions}>
+        <button className={styles.secondary} type="submit" disabled={saving}>
+          更新密码
+        </button>
+      </div>
     </form>
   );
 }

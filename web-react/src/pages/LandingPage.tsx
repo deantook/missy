@@ -10,12 +10,7 @@ export function LandingPage({ navigate }: LandingPageProps) {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <button
-          type="button"
-          className={styles.logo}
-          onClick={() => navigate("/")}
-          aria-label="Missy 首页"
-        >
+        <button type="button" className={styles.logo} onClick={() => navigate("/")} aria-label="Missy 首页">
           <span>✦</span>
           <strong>Missy</strong>
         </button>
@@ -25,7 +20,7 @@ export function LandingPage({ navigate }: LandingPageProps) {
         </nav>
         <div className={styles.actions}>
           <ThemeToggle />
-          <button type="button" className={styles.textButton} onClick={() => navigate("/login")}>
+          <button type="button" className={styles.login} onClick={() => navigate("/login")}>
             登录
           </button>
           <button type="button" className={styles.primary} onClick={() => navigate("/register")}>
@@ -48,57 +43,71 @@ export function LandingPage({ navigate }: LandingPageProps) {
             Missy 连接你的滴答清单。用自然语言创建任务、调整日程、查询进度，把琐碎的管理交给 AI。
           </p>
           <div className={styles.heroActions}>
-            <button type="button" className={styles.primary} onClick={() => navigate("/register")}>
+            <button type="button" className={styles.heroPrimary} onClick={() => navigate("/register")}>
               开始使用 <span>→</span>
             </button>
-            <button type="button" className={styles.textButton} onClick={() => navigate("/login")}>
+            <button type="button" className={styles.secondary} onClick={() => navigate("/login")}>
               已有账户，登录
             </button>
           </div>
           <p className={styles.note}>
-            <span>✓</span> 几分钟完成连接 <span>✓</span> 你的数据按账户隔离
+            <span>✓</span> 几分钟完成连接&nbsp;&nbsp; <span>✓</span> 你的数据按账户隔离
           </p>
         </div>
 
         <div className={previewStyles.visual} aria-label="Missy 对话界面示意图">
-          <div className={previewStyles.preview}>
-            <aside>
-              <div className={previewStyles.previewBrand}>
+          <div className={previewStyles.glow} />
+          <div className={previewStyles.window}>
+            <div className={previewStyles.sidebar}>
+              <div className={previewStyles.brand}>
                 <span>✦</span>
                 <b>Missy</b>
               </div>
               <small>最近对话</small>
-              <i className={previewStyles.activeLine} />
+              <i className={previewStyles.active} />
               <i />
-              <i className={previewStyles.shortLine} />
-            </aside>
-            <section>
-              <div className={previewStyles.previewTop}>
+              <i className={previewStyles.short} />
+            </div>
+            <div className={previewStyles.chat}>
+              <div className={previewStyles.top}>
                 <span>今天的安排</span>
                 <i />
               </div>
-              <div className={previewStyles.previewMessages}>
-                <div className={previewStyles.previewDate}>今天</div>
-                <div className={previewStyles.previewUser}>帮我安排明天下午写周报，预留 1 小时</div>
-                <div className={previewStyles.previewReply}>
-                  <span>✦</span>
+              <div className={previewStyles.messages}>
+                <div className={previewStyles.date}>今天</div>
+                <div className={previewStyles.user}>帮我安排明天下午写周报，预留 1 小时</div>
+                <div className={previewStyles.reply}>
+                  <span className={previewStyles.mark}>✦</span>
                   <div>
                     <b>已经安排好了</b>
-                    <p>明天 15:00-16:00 · 写周报</p>
-                    <small>✓ 已同步到滴答清单</small>
+                    <p>明天 15:00–16:00 · 写周报</p>
+                    <small>
+                      <i>✓</i> 已同步到滴答清单
+                    </small>
                   </div>
                 </div>
               </div>
-              <div className={previewStyles.composer}>继续告诉 Missy…</div>
-            </section>
+              <div className={previewStyles.composer}>
+                继续告诉 Missy…
+                <b>↑</b>
+              </div>
+            </div>
           </div>
-          <div className={previewStyles.taskCard}>✓ 任务已创建 · 明天 15:00</div>
-          <div className={previewStyles.statusCard}>滴答清单已连接</div>
+          <div className={`${previewStyles.float} ${previewStyles.task}`}>
+            <span>✓</span>
+            <div>
+              <b>任务已创建</b>
+              <small>明天 15:00</small>
+            </div>
+          </div>
+          <div className={`${previewStyles.float} ${previewStyles.status}`}>
+            <i /> 滴答清单已连接
+          </div>
         </div>
       </section>
 
       <section id="features" className={styles.features}>
-        <div>
+        <div className={styles.featuresHead}>
           <p className={styles.eyebrow}>ONE CONVERSATION, MORE DONE</p>
           <h2>少一点整理，多一点完成</h2>
         </div>

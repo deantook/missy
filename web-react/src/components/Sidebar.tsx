@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useChat } from "../context/ChatContext.tsx";
 import { useConfirm } from "../hooks/useConfirm.ts";
+import { useRouter } from "../hooks/useRouter.tsx";
 import type { Conversation } from "../types.ts";
 import { ConversationMenu } from "./ConversationMenu.tsx";
 import styles from "./Sidebar.module.css";
@@ -22,7 +23,12 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
     deleteConversation,
   } = useChat();
   const confirm = useConfirm();
+  const { path, navigate } = useRouter();
   const [menu, setMenu] = useState<MenuState>(null);
+
+  const goChat = () => {
+    if (path !== "/") navigate("/", true);
+  };
 
   const rename = (conversation: Conversation) => {
     const title = window.prompt("新的会话名称", conversation.title)?.trim();
@@ -52,7 +58,10 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             className={styles.newChat}
             title="新建对话"
             aria-label="新建对话"
-            onClick={() => void createConversation()}
+            onClick={() => {
+              onCloseMobile();
+              void createConversation().then(() => goChat());
+            }}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
@@ -68,7 +77,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               className={`${styles.item} ${active?.id === conversation.id ? styles.active : ""}`}
               onClick={() => {
                 onCloseMobile();
-                void openConversation(conversation.id);
+                void openConversation(conversation.id).then(() => goChat());
               }}
               onContextMenu={(event) => {
                 event.preventDefault();

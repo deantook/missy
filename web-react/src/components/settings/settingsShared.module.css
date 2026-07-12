@@ -1,0 +1,388 @@
+.card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin: 0;
+  padding: 22px;
+  border: 1px solid #e2e0d9;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 28px #34352e08;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.heading > div {
+  min-width: 0;
+}
+
+.icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: #f0efea;
+  color: #555650;
+}
+
+.icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tokenIcon {
+  background: #fff0ed;
+  color: #d45440;
+}
+
+.heading h3 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.heading p {
+  margin: 4px 0 0;
+  color: #92938d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.headingLine {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: #f0f0ed;
+  color: #888983;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.statusOk {
+  background: #e7f5eb;
+  color: #348052;
+}
+
+.fields {
+  display: grid;
+  gap: 15px;
+}
+
+.fields label {
+  display: grid;
+  gap: 7px;
+  color: #64655f;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fields input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #dad9d2;
+  border-radius: 9px;
+  background: #fafaf8;
+  color: #252622;
+  outline: none;
+}
+
+.fields input:focus {
+  border-color: #df604c;
+  box-shadow: 0 0 0 3px #df604c18;
+}
+
+.fields input::placeholder {
+  color: #b0b1aa;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #eeede8;
+}
+
+.fields + .actions {
+  margin-top: 18px;
+}
+
+.primary,
+.secondary {
+  padding: 9px 14px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.primary {
+  border: 0;
+  background: #df604c;
+  color: white;
+}
+
+.secondary {
+  border: 1px solid #d9d8d1;
+  background: #fff;
+  color: #464742;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.tokenBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.tokenLabel {
+  display: grid;
+  gap: 7px;
+  color: #64655f;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tokenWrap {
+  position: relative;
+  display: block;
+}
+
+.tokenWrap input {
+  width: 100%;
+  padding: 11px 105px 11px 12px;
+  border: 1px solid #dad9d2;
+  border-radius: 9px;
+  background: #fafaf8;
+  color: #252622;
+  outline: none;
+}
+
+.tokenWrap input:focus {
+  border-color: #df604c;
+  box-shadow: 0 0 0 3px #df604c18;
+}
+
+.tokenWrap small {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  max-width: 88px;
+  overflow: hidden;
+  transform: translateY(-50%);
+  color: #8b8c85;
+  font-size: 10px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 13px 0 0;
+  color: #999a94;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.privacy svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-top: 1px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.privacy a {
+  color: #c84b38;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rowCard {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid #e2e0d9;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 28px #34352e08;
+}
+
+.rowCard h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.rowCard p {
+  margin: 4px 20px 0 0;
+  color: #92938d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+.textButton {
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: #656660;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.textButton:hover {
+  color: #d45440;
+}
+
+.danger {
+  padding: 9px 14px;
+  border: 1px solid #f0c5bd;
+  border-radius: 9px;
+  background: #fff0ed;
+  color: #c74734;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .tokenBody {
+    grid-template-columns: 1fr;
+  }
+
+  .tokenBody .primary {
+    justify-self: start;
+  }
+
+  .rowCard {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .rowCard p {
+    margin-right: 0;
+  }
+
+  .rowActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .rowCard {
+  border-color: #353631;
+  background: #242522;
+}
+
+html[data-theme="dark"] .icon {
+  background: #33342f;
+  color: #c0c1bb;
+}
+
+html[data-theme="dark"] .tokenIcon {
+  background: #452722;
+  color: #f08a79;
+}
+
+html[data-theme="dark"] .heading p,
+html[data-theme="dark"] .rowCard p {
+  color: #8f9089;
+}
+
+html[data-theme="dark"] .fields label {
+  color: #aaa9a3;
+}
+
+html[data-theme="dark"] .tokenLabel {
+  color: #aaa9a3;
+}
+
+html[data-theme="dark"] .fields input,
+html[data-theme="dark"] .tokenWrap input {
+  border-color: #41423d;
+  background: #1d1e1b;
+  color: #e7e7e2;
+}
+
+html[data-theme="dark"] .actions {
+  border-color: #353631;
+}
+
+html[data-theme="dark"] .secondary {
+  border-color: #444540;
+  background: #30312d;
+  color: #e1e1dc;
+}
+
+html[data-theme="dark"] .status {
+  background: #33342f;
+  color: #999a93;
+}
+
+html[data-theme="dark"] .statusOk {
+  background: #24362a;
+  color: #70b284;
+}
+
+html[data-theme="dark"] .danger {
+  border-color: #683a33;
+  background: #3b2623;
+  color: #f09586;
+}
+
+html[data-theme="dark"] .textButton {
+  color: #b1b2ab;
+}

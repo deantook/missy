@@ -626,20 +626,20 @@ function renderSettingsContent(): string {
       <div class="account-summary-status"><i></i>账户正常</div>
     </section>
     <div class="settings-grid">
-      <form id="profile-form" class="settings-section profile-settings">
+      <form id="profile-form" class="settings-section profile-settings" novalidate>
         <div class="section-heading"><span class="section-icon">${icon("M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z")}</span><div><h3>个人资料</h3><p>管理你的公开名称和登录邮箱</p></div></div>
-        <div class="settings-fields"><label>显示名称<input name="displayName" value="${escapeHtml(user.displayName)}" required maxlength="80" autocomplete="name"></label><label>邮箱地址<input name="email" type="email" value="${escapeHtml(user.email)}" required autocomplete="email"></label></div>
+        <div class="settings-fields"><label>显示名称<input name="displayName" value="${escapeHtml(user.displayName)}" maxlength="80" autocomplete="name"></label><label>邮箱地址<input name="email" type="email" value="${escapeHtml(user.email)}" autocomplete="email"></label></div>
         <div class="section-actions"><button class="primary compact" type="submit">保存更改</button></div>
       </form>
-      <form id="password-form" class="settings-section password-settings">
+      <form id="password-form" class="settings-section password-settings" novalidate>
         <div class="section-heading"><span class="section-icon">${icon("M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v8H4v-8a2 2 0 0 1 2-2Zm6 4v3")}</span><div><h3>登录安全</h3><p>定期更新密码，保护账户安全</p></div></div>
-        <div class="settings-fields"><label>当前密码<input name="currentPassword" type="password" required autocomplete="current-password" placeholder="输入当前密码"></label><label>新密码<input name="newPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="至少 8 位字符"></label></div>
+        <div class="settings-fields"><label>当前密码<input name="currentPassword" type="password" autocomplete="current-password" placeholder="输入当前密码"></label><label>新密码<input name="newPassword" type="password" autocomplete="new-password" placeholder="至少 8 位字符"></label></div>
         <div class="section-actions"><button class="secondary compact" type="submit">更新密码</button></div>
       </form>
-      <form id="token-form" class="settings-section token-settings">
+      <form id="token-form" class="settings-section token-settings" novalidate>
         <div class="section-heading"><span class="section-icon token-icon">${icon("M15 7a4 4 0 1 0-3.7 5.5L3 20.8V22h3l1.5-1.5L9 22l2-2-1.5-1.5 4.2-4.2A4 4 0 0 0 15 7Z")}</span><div><div class="heading-line"><h3>Dida MCP Token</h3><span class="token-status ${user.didaTokenConfigured ? "ok" : ""}"><i></i>${user.didaTokenConfigured ? "已连接" : "未配置"}</span></div><p>连接滴答清单，让 Missy 可以安全地管理你的任务</p></div></div>
         <div class="token-body">
-          <label>${user.didaTokenConfigured ? "" : "添加 Token"}<span class="token-input-wrap"><input name="token" type="password" minlength="8" placeholder="粘贴 Dida MCP Token" required autocomplete="off"><small>${user.didaTokenConfigured ? escapeHtml(user.didaTokenHint) : "安全加密保存"}</small></span></label>
+          <label>${user.didaTokenConfigured ? "" : "添加 Token"}<span class="token-input-wrap"><input name="token" type="password" placeholder="粘贴 Dida MCP Token" autocomplete="off"><small>${user.didaTokenConfigured ? escapeHtml(user.didaTokenHint) : "安全加密保存"}</small></span></label>
           <button class="primary compact" type="submit">验证并保存</button>
         </div>
         <p class="privacy-note">${icon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z")}<span>Token 按账户独立保存，任何接口都不会返回完整内容。<br>获取方式：滴答清单 → <a href="https://dida365.com/webapp/#q/all/tasks?modalType=settings" target="_blank" rel="noopener noreferrer">设置</a> → 账户与安全 → API 口令 → 管理。</span></p>
@@ -677,14 +677,50 @@ function bindSettingsPageEvents(): void {
 }
 
 function bindSettingsForms(): void {
-  const submit = (selector: string, url: string, method: string, onSuccess: (result: unknown) => void) => document.querySelector<HTMLFormElement>(selector)!.addEventListener("submit", async (event) => {
-    event.preventDefault(); const button = event.currentTarget.querySelector<HTMLButtonElement>("button")!; button.disabled = true;
-    try { const result = await api<unknown>(url, { method, body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); onSuccess(result); showToast("保存成功"); }
-    catch (error) { showToast(error instanceof Error ? error.message : String(error), true); } finally { button.disabled = false; }
+  const fieldValue = (form: HTMLFormElement, name: string) => String(new FormData(form).get(name) ?? "").trim();
+  const focusField = (form: HTMLFormElement, name: string) => form.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.focus();
+  const submit = (selector: string, url: string, method: string, onSuccess: (result: unknown) => void, validate?: (form: HTMLFormElement) => string | null) =>
+    document.querySelector<HTMLFormElement>(selector)!.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget as HTMLFormElement;
+      const validationError = validate?.(form);
+      if (validationError) {
+        showToast(validationError, true);
+        return;
+      }
+      const button = form.querySelector<HTMLButtonElement>("button[type=submit], button:not([type])")!;
+      button.disabled = true;
+      try {
+        const result = await api<unknown>(url, { method, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+        onSuccess(result);
+        showToast("保存成功");
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : String(error), true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+  submit("#profile-form", "/v1/me", "PATCH", (result) => { user = (result as { user: User }).user; renderSettingsPage(); }, (form) => {
+    if (!fieldValue(form, "displayName")) { focusField(form, "displayName"); return "请填写显示名称"; }
+    const email = fieldValue(form, "email");
+    if (!email) { focusField(form, "email"); return "请填写邮箱地址"; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { focusField(form, "email"); return "请输入有效的邮箱地址"; }
+    return null;
   });
-  submit("#profile-form", "/v1/me", "PATCH", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
-  submit("#token-form", "/v1/me/dida-token", "PUT", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
-  submit("#password-form", "/v1/me/password", "PUT", () => { (document.querySelector("#password-form") as HTMLFormElement).reset(); });
+  submit("#token-form", "/v1/me/dida-token", "PUT", (result) => { user = (result as { user: User }).user; renderSettingsPage(); }, (form) => {
+    const token = fieldValue(form, "token");
+    if (!token) { focusField(form, "token"); return "请先粘贴 Dida MCP Token"; }
+    if (token.length < 8) { focusField(form, "token"); return "Token 长度至少 8 位"; }
+    return null;
+  });
+  submit("#password-form", "/v1/me/password", "PUT", () => { (document.querySelector("#password-form") as HTMLFormElement).reset(); }, (form) => {
+    if (!fieldValue(form, "currentPassword")) { focusField(form, "currentPassword"); return "请填写当前密码"; }
+    const next = fieldValue(form, "newPassword");
+    if (!next) { focusField(form, "newPassword"); return "请填写新密码"; }
+    if (next.length < 8) { focusField(form, "newPassword"); return "新密码至少 8 位"; }
+    return null;
+  });
   document.querySelector("#clear-conversations")!.addEventListener("click", async (event) => {
     const confirmed = await showConfirmDialog({
       title: "清除全部历史会话？",

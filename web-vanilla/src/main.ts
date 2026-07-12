@@ -476,7 +476,7 @@ function renderApp(): void {
       <div class="composer-wrap">
         ${!user.didaTokenConfigured ? '<button id="configure-token" class="token-banner"><span>!</span><div><strong>连接滴答清单</strong><small>配置 Dida MCP Token 后即可开始对话</small></div><b>去设置 →</b></button>' : ""}
         <form id="composer" class="composer"><textarea id="message-input" maxlength="4000" rows="1" placeholder="给 Missy 发送消息…" ${!user.didaTokenConfigured || pending ? "disabled" : ""}></textarea><button class="send" type="submit" ${!user.didaTokenConfigured || pending ? "disabled" : ""} aria-label="发送">↑</button></form>
-        <p class="hint">Enter 发送 · Shift + Enter 换行</p>
+        <p class="hint">Missy 可能出错 请谨慎斟酌内容</p>
       </div>
     </main>${renderDebugPane()}${renderChoiceDialog()}</div>`;
   renderConversationList();

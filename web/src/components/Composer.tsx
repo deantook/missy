@@ -55,7 +55,7 @@ export function Composer({ pending, didaTokenConfigured, sendMessage }: Composer
           ↑
         </button>
       </form>
-      <p className={styles.hint}>Enter 发送 · Shift + Enter 换行</p>
+      <p className={styles.hint}>Missy 可能出错 请谨慎斟酌内容</p>
     </div>
   );
 }

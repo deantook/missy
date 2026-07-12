@@ -1,6 +1,7 @@
 import "./style.css";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import { parseChoicePrompt, visibleAssistantContent, type ChoicePrompt } from "./choice-prompt.ts";
 
 type Usage = { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null };
 type User = { id: string; email: string; displayName: string; didaTokenConfigured: boolean; didaTokenHint: string | null };
@@ -20,6 +21,7 @@ let conversations: Conversation[] = [];
 let active: Conversation | null = null;
 let turns: Turn[] = [];
 let pending = false;
+let dismissedChoiceTurnId: string | null = null;
 let authMode: "login" | "register" = "login";
 const sidebarStorageKey = "missy.sidebarCollapsed";
 let sidebarCollapsed = (() => {
@@ -235,7 +237,7 @@ function renderApp(): void {
         <form id="composer" class="composer"><textarea id="message-input" maxlength="4000" rows="1" placeholder="给 Missy 发送消息…" ${!user.didaTokenConfigured || pending ? "disabled" : ""}></textarea><button class="send" type="submit" ${!user.didaTokenConfigured || pending ? "disabled" : ""} aria-label="发送">↑</button></form>
         <p class="hint">Enter 发送 · Shift + Enter 换行</p>
       </div>
-    </main></div>`;
+    </main>${renderChoiceDialog()}</div>`;
   renderConversationList();
   bindAppEvents();
   requestAnimationFrame(() => {
@@ -246,10 +248,40 @@ function renderApp(): void {
 
 function renderMessages(): string {
   if (!turns.length) return `<div class="welcome"><div class="brand-mark">✦</div><h1>今天想安排什么？</h1><p>查询待办、创建任务、调整日程，或者完成你的清单。</p><div class="suggestions"><button>今天有哪些待办？</button><button>创建一个明天下午三点写周报的任务</button><button>列出最近七天已完成的任务</button></div></div>`;
-  return turns.map((turn) => `<div class="turn">
+  return turns.map((turn) => {
+    const visible = visibleAssistantContent(turn.assistantContent);
+    const assistantBody = turn.status === "failed"
+      ? `请求失败：${turn.errorMessage ?? "未知错误"}`
+      : visible || parseChoicePrompt(turn.assistantContent)?.question || "";
+    return `<div class="turn">
     <article class="message user"><div><p>你</p><div class="bubble">${escapeHtml(turn.userContent).replace(/\n/g, "<br>")}</div></div></article>
-    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" && !turn.assistantContent ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(turn.assistantContent || `请求失败：${turn.errorMessage ?? "未知错误"}`)}</div>${turn.status === "succeeded" ? renderFeedback(turn) : ""}</div></article>
-  </div>`).join("");
+    <article class="message assistant"><div class="message-content"><p>Missy</p><div class="bubble markdown ${turn.status === "failed" ? "failed" : ""}">${turn.status === "pending" && !turn.assistantContent ? '<span class="typing"><i></i><i></i><i></i></span>' : renderMarkdown(assistantBody)}</div>${turn.status === "succeeded" ? renderFeedback(turn) : ""}</div></article>
+  </div>`;
+  }).join("");
+}
+
+function pendingChoice(): { turn: Turn; prompt: ChoicePrompt } | null {
+  const turn = turns.at(-1);
+  if (!turn || turn.status !== "succeeded" || turn.id === dismissedChoiceTurnId) return null;
+  const prompt = parseChoicePrompt(turn.assistantContent);
+  return prompt ? { turn, prompt } : null;
+}
+
+function renderChoiceDialog(): string {
+  const choice = pendingChoice();
+  if (!choice) return "";
+  const { turn, prompt } = choice;
+  const inputType = prompt.mode === "single" ? "radio" : "checkbox";
+  return `<div class="choice-dialog-backdrop" data-choice-turn="${escapeHtml(turn.id)}">
+    <section class="choice-dialog" role="dialog" aria-modal="true" aria-labelledby="choice-dialog-title">
+      <div class="choice-dialog-header"><div><span class="choice-dialog-kicker">帮我确认一下</span><h3 id="choice-dialog-title">${escapeHtml(prompt.question)}</h3></div><button class="choice-dialog-close" type="button" aria-label="关闭，改为手动输入">×</button></div>
+      <form id="choice-form" data-mode="${prompt.mode}">
+        <div class="choice-options">${prompt.options.map((option, index) => `<label class="choice-option"><input type="${inputType}" name="choice" value="${index}"><span class="choice-control" aria-hidden="true"></span><span><strong>${escapeHtml(option.label)}</strong>${option.description ? `<small>${escapeHtml(option.description)}</small>` : ""}</span></label>`).join("")}</div>
+        ${prompt.allowOther ? '<label class="choice-other"><span>其他（可选）</span><input name="other" maxlength="240" placeholder="补充你的情况…"></label>' : ""}
+        <div class="choice-dialog-actions"><button class="choice-skip" type="button">我自己输入</button><button class="primary choice-submit" type="submit" disabled>${escapeHtml(prompt.submitLabel)}</button></div>
+      </form>
+    </section>
+  </div>`;
 }
 
 function renderFeedback(turn: Turn): string {
@@ -311,11 +343,49 @@ function bindAppEvents(): void {
       if (turnId && feedback) void setTurnFeedback(turnId, feedback);
     });
   });
+  bindChoiceDialog();
   const form = document.querySelector<HTMLFormElement>("#composer")!;
   const input = document.querySelector<HTMLTextAreaElement>("#message-input")!;
   form.addEventListener("submit", (event) => { event.preventDefault(); const message = input.value.trim(); if (message) { input.value = ""; void sendMessage(message); } });
   input.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); } });
   input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight, 160)}px`; });
+}
+
+function bindChoiceDialog(): void {
+  const choice = pendingChoice();
+  const form = document.querySelector<HTMLFormElement>("#choice-form");
+  if (!choice || !form) return;
+  const submit = form.querySelector<HTMLButtonElement>(".choice-submit")!;
+  const other = form.elements.namedItem("other") as HTMLInputElement | null;
+  const selectedInputs = () => Array.from(form.querySelectorAll<HTMLInputElement>('input[name="choice"]:checked'));
+  const sync = () => { submit.disabled = selectedInputs().length === 0 && !other?.value.trim(); };
+  form.addEventListener("change", sync);
+  other?.addEventListener("input", sync);
+  let onKeydown: (event: KeyboardEvent) => void;
+  const dismiss = () => {
+    document.removeEventListener("keydown", onKeydown);
+    dismissedChoiceTurnId = choice.turn.id;
+    document.querySelector(".choice-dialog-backdrop")?.remove();
+    document.querySelector<HTMLTextAreaElement>("#message-input")?.focus();
+  };
+  document.querySelector(".choice-dialog-close")?.addEventListener("click", dismiss);
+  document.querySelector(".choice-skip")?.addEventListener("click", dismiss);
+  onKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      dismiss();
+    }
+  };
+  document.addEventListener("keydown", onKeydown);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const labels = selectedInputs().map((input) => choice.prompt.options[Number(input.value)]?.label).filter(Boolean);
+    const custom = other?.value.trim();
+    if (!labels.length && !custom) return;
+    const parts = labels.length ? [`我的选择：${labels.join("、")}`] : [];
+    if (custom) parts.push(`补充：${custom}`);
+    dismiss();
+    void sendMessage(parts.join("；"));
+  });
 }
 
 async function loadConversations(): Promise<void> {
@@ -354,7 +424,7 @@ async function sendMessage(message: string): Promise<void> {
       } else if (event.type === "delta") {
         optimistic.assistantContent = (event.reset ? "" : optimistic.assistantContent ?? "") + event.delta;
         const bubble = document.querySelector<HTMLElement>(".turn:last-child .message.assistant .bubble");
-        if (bubble) bubble.innerHTML = renderMarkdown(optimistic.assistantContent);
+        if (bubble) bubble.innerHTML = renderMarkdown(visibleAssistantContent(optimistic.assistantContent));
         const messages = document.querySelector<HTMLElement>("#messages");
         if (messages) messages.scrollTop = messages.scrollHeight;
       } else if (event.type === "done") {

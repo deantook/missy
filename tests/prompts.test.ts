@@ -8,6 +8,8 @@ describe("date context prompt", () => {
     expect(prompt).toContain("当前日期基准：2026-07-12（Asia/Shanghai）");
     expect(prompt).toContain("“明年”指 2027 年");
     expect(prompt).toContain("不得根据训练语料或自身知识猜测当前年份");
+    expect(prompt).toContain("```choice_prompt");
+    expect(prompt).toContain('"mode":"single"');
   });
 
   it("uses Asia/Shanghai across a UTC date boundary", () => {

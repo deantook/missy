@@ -5,6 +5,46 @@ export type TaskAgent = ReturnType<typeof createTaskAgent>["agent"];
 export type AgentResult = Awaited<ReturnType<TaskAgent["invoke"]>>;
 export type DeleteDecision = "approve" | "reject";
 
+type ToolCall = { id?: string; name?: string };
+type AgentMessage = {
+  name?: string;
+  status?: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+  getType?: () => string;
+};
+
+export function successfulToolNames(result: { messages?: unknown }): string[] {
+  if (!Array.isArray(result.messages)) return [];
+  const calls = new Map<string, string>();
+  for (const raw of result.messages) {
+    const message = raw as AgentMessage;
+    for (const call of message.tool_calls ?? []) {
+      if (call.id && call.name) calls.set(call.id, call.name);
+    }
+  }
+  return result.messages.flatMap((raw) => {
+    const message = raw as AgentMessage;
+    if (message.getType?.() !== "tool" || message.status === "error") return [];
+    const name = message.name ?? (message.tool_call_id ? calls.get(message.tool_call_id) : undefined);
+    return name ? [name] : [];
+  });
+}
+
+export function createdProjectWithoutTasks(result: { messages?: unknown }): boolean {
+  const names = successfulToolNames(result);
+  const createdProject = names.includes("create_project");
+  const createdTasks = names.includes("create_task") || names.includes("batch_add_tasks");
+  return createdProject && !createdTasks;
+}
+
+export function projectCreationNeedsVerification(result: { messages?: unknown }): boolean {
+  const names = successfulToolNames(result);
+  if (!names.includes("create_project")) return false;
+  const createdTasks = names.includes("create_task") || names.includes("batch_add_tasks");
+  return !createdTasks || !names.includes("get_project_with_undone_tasks");
+}
+
 export function lastAssistantText(result: AgentResult): string {
   const messages = result.messages as Array<{ content?: unknown }> | undefined;
   if (!messages?.length) return "(无回复)";

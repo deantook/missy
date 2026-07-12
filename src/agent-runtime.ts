@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { NamedTool } from "./agent.ts";
 import { createTaskAgent } from "./agent.ts";
-import { lastAssistantText, resolveInterruptsWith, type AgentResult } from "./conversation.ts";
+import { lastAssistantText, projectCreationNeedsVerification, resolveInterruptsWith, type AgentResult } from "./conversation.ts";
 import { connectDida365Mcp, closeMcp, type McpHandle } from "./mcp.ts";
 import { UsageCollector, type TokenUsage } from "./usage.ts";
 
@@ -105,6 +105,15 @@ export async function runAgentTurn(params: {
       async () => params.allowDelete ? "approve" : "reject",
       (command) => stream(command),
     );
+    for (let attempt = 0; attempt < 2 && projectCreationNeedsVerification(result); attempt += 1) {
+      result = await stream({ messages: [{
+        role: "user" as const,
+        content: "系统一致性检查：清单创建后的任务写入与回查流程尚未完整通过。不要重复创建清单，也不要向用户提问。请从此前 create_project 的工具结果读取真实 projectId；如果任务尚未成功写入，立即用 batch_add_tasks（或 create_task）写入刚才承诺的全部任务；然后调用 get_project_with_undone_tasks 回查。只有回查确认任务存在后才能报告成功。",
+      }] });
+    }
+    if (projectCreationNeedsVerification(result)) {
+      throw new Error("清单任务写入或回查验证未完成；系统已阻止返回错误的成功结果，请重试。");
+    }
     return { message: lastAssistantText(result), usage: collector.value() };
   } catch (error) {
     throw new AgentRunError(error instanceof Error ? error.message : String(error), collector.value());

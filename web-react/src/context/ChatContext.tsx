@@ -35,7 +35,6 @@ type ChatContextValue = {
 };
 
 const ChatContext = createContext<ChatContextValue | null>(null);
-
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -46,7 +45,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef(false), loadedUserRef = useRef<string | null>(null);
   const [debugRevision, setDebugVersion] = useState(0);
   const debugTimeline = useRef(new DebugTimeline()).current;
-
   const bumpDebug = useCallback(() => setDebugVersion((version) => version + 1), []);
 
   const clearDebug = useCallback(() => {
@@ -249,3 +247,4 @@ export function useChat(): ChatContextValue {
   if (!ctx) throw new Error("useChat must be used within ChatProvider");
   return ctx;
 }
+

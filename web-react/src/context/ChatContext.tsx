@@ -16,7 +16,6 @@ import { sendChatMessage } from "./chat/sendMessage.ts";
 import { useToast } from "./ToastContext.tsx";
 
 type Feedback = "like" | "dislike";
-
 type ChatContextValue = {
   conversations: Conversation[];
   active: Conversation | null;
@@ -31,6 +30,7 @@ type ChatContextValue = {
   sendMessage: (message: string) => Promise<void>;
   setTurnFeedback: (turnId: string, feedback: Feedback) => Promise<void>;
   debugTimeline: DebugTimeline;
+  debugRevision: number;
   clearDebug: () => void;
 };
 
@@ -43,8 +43,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState<Conversation | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [pending, setPending] = useState(false);
-  const [, setDebugVersion] = useState(0);
-  const loadedUserRef = useRef<string | null>(null);
+  const pendingRef = useRef(false), loadedUserRef = useRef<string | null>(null);
+  const [debugRevision, setDebugVersion] = useState(0);
   const debugTimeline = useRef(new DebugTimeline()).current;
 
   const bumpDebug = useCallback(() => setDebugVersion((version) => version + 1), []);
@@ -82,14 +82,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const openConversation = useCallback(
     async (id: string) => {
-      const result = await api<{ conversation: Conversation; turns: Turn[] }>(
-        `/v1/conversations/${id}`,
-      );
-      setActive(result.conversation);
-      setTurns(result.turns);
-      clearDebug();
+      try {
+        const result = await api<{ conversation: Conversation; turns: Turn[] }>(
+          `/v1/conversations/${id}`,
+        );
+        setActive(result.conversation);
+        setTurns(result.turns);
+        clearDebug();
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : String(error), true);
+      }
     },
-    [clearDebug],
+    [clearDebug, showToast],
   );
 
   const renameConversation = useCallback(
@@ -171,7 +175,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       await sendChatMessage(message, {
         user,
         active,
-        pending,
+        pendingRef,
         createConversation,
         loadConversationList,
         setActive,
@@ -182,7 +186,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         bumpDebug,
       });
     },
-    [active, bumpDebug, clearDebug, createConversation, debugTimeline, loadConversationList, pending, user],
+    [active, bumpDebug, clearDebug, createConversation, debugTimeline, loadConversationList, user],
   );
 
   useEffect(() => {
@@ -214,6 +218,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       setTurnFeedback,
       debugTimeline,
+      debugRevision,
       clearDebug,
     }),
     [
@@ -230,6 +235,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       setTurnFeedback,
       debugTimeline,
+      debugRevision,
       clearDebug,
     ],
   );

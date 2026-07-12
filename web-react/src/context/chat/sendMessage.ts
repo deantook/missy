@@ -1,3 +1,4 @@
+import type { MutableRefObject } from "react";
 import { readAuthToken } from "../../api/auth-storage.ts";
 import { streamApi } from "../../api/stream.ts";
 import { DebugTimeline, isDebugBuild } from "../../lib/debug-timeline.ts";
@@ -8,7 +9,7 @@ type SetState<T> = (updater: T | ((value: T) => T)) => void;
 type SendMessageDeps = {
   user: User | null;
   active: Conversation | null;
-  pending: boolean;
+  pendingRef: MutableRefObject<boolean>;
   createConversation: () => Promise<Conversation | null>;
   loadConversationList: () => Promise<Conversation[]>;
   setActive: SetState<Conversation | null>;
@@ -28,9 +29,17 @@ const updateLastTurn = (turns: Turn[], update: (turn: Turn) => Turn): Turn[] => 
 };
 
 export async function sendChatMessage(message: string, deps: SendMessageDeps): Promise<void> {
-  if (!deps.user?.didaTokenConfigured || deps.pending) return;
+  if (!deps.user?.didaTokenConfigured) return;
+  if (deps.pendingRef.current) return;
+  deps.pendingRef.current = true;
+  deps.setPending(true);
+
   const conversation = deps.active ?? await deps.createConversation();
-  if (!conversation) return;
+  if (!conversation) {
+    deps.pendingRef.current = false;
+    deps.setPending(false);
+    return;
+  }
 
   const optimistic: Turn = {
     id: "pending",
@@ -44,7 +53,6 @@ export async function sendChatMessage(message: string, deps: SendMessageDeps): P
   };
 
   deps.setTurns((turns) => [...turns, optimistic]);
-  deps.setPending(true);
 
   try {
     await streamApi(
@@ -97,6 +105,7 @@ export async function sendChatMessage(message: string, deps: SendMessageDeps): P
       updateLastTurn(turns, (turn) => ({ ...turn, status: "failed", errorMessage })),
     );
   } finally {
+    deps.pendingRef.current = false;
     deps.setPending(false);
   }
 }

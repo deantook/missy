@@ -1,0 +1,130 @@
+.visual {
+  position: relative;
+}
+
+.preview {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-muted) 24%, transparent);
+  border-radius: 30px;
+  background: color-mix(in srgb, var(--color-bg) 96%, white);
+  box-shadow: 0 40px 100px color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.preview aside {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  padding: 24px;
+  background: color-mix(in srgb, var(--color-bg) 84%, var(--color-muted));
+}
+
+.preview i {
+  display: block;
+  height: 18px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--color-muted) 20%, transparent);
+}
+
+.previewBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.activeLine {
+  background: white !important;
+}
+
+.shortLine {
+  width: 68%;
+}
+
+.preview section {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 24px;
+}
+
+.previewTop {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.previewMessages {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+}
+
+.previewDate {
+  justify-self: center;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.previewUser,
+.previewReply,
+.composer,
+.taskCard,
+.statusCard {
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.previewUser {
+  justify-self: end;
+  max-width: 290px;
+  padding: 13px 15px;
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.previewReply {
+  display: flex;
+  gap: 12px;
+  max-width: 340px;
+  padding: 16px;
+}
+
+.previewReply p,
+.previewReply small {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+}
+
+.composer {
+  padding: 14px 16px;
+  color: var(--color-muted);
+}
+
+.taskCard,
+.statusCard {
+  position: absolute;
+  padding: 12px 16px;
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.taskCard {
+  left: -18px;
+  bottom: 48px;
+}
+
+.statusCard {
+  right: 20px;
+  top: 36px;
+}
+
+@media (max-width: 860px) {
+  .visual {
+    display: none;
+  }
+}

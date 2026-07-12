@@ -45,35 +45,37 @@ export function ChatPage() {
 
   return (
     <AppShell>
-      <header className={styles.header}>
-        <div className={styles.title}>
-          <h2>{title}</h2>
-          <p>{didaReady ? "已连接滴答清单" : "需要配置滴答清单 Token"}</p>
-        </div>
-        <div className={styles.actions}>
-          <ThemeToggle />
-          <button
-            type="button"
-            className={styles.profile}
-            aria-label="打开设置"
-            onClick={() => navigate("/settings")}
-          >
-            {profileLabel}
-          </button>
-        </div>
-      </header>
-      {!didaReady ? (
-        <div className={styles.banner}>
-          <span>!</span>
-          <div>
-            <b>还不能发送消息</b>
-            <small>先到设置页配置滴答清单 Token，Missy 才能读取和整理任务。</small>
+      <div className={styles.top}>
+        <header className={styles.header}>
+          <div className={styles.title}>
+            <h2>{title}</h2>
+            <p>{didaReady ? "已连接滴答清单" : "需要配置滴答清单 Token"}</p>
           </div>
-          <button type="button" onClick={() => navigate("/settings")}>
-            去设置
-          </button>
-        </div>
-      ) : null}
+          <div className={styles.actions}>
+            <ThemeToggle />
+            <button
+              type="button"
+              className={styles.profile}
+              aria-label="打开设置"
+              onClick={() => navigate("/settings")}
+            >
+              {profileLabel}
+            </button>
+          </div>
+        </header>
+        {!didaReady ? (
+          <div className={styles.banner}>
+            <span>!</span>
+            <div>
+              <b>还不能发送消息</b>
+              <small>先到设置页配置滴答清单 Token，Missy 才能读取和整理任务。</small>
+            </div>
+            <button type="button" onClick={() => navigate("/settings")}>
+              去设置
+            </button>
+          </div>
+        ) : null}
+      </div>
       <MessageList
         turns={turns}
         pending={pending}

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 web/dist/
+web-react/dist/
 .env
 *.log
 .DS_Store

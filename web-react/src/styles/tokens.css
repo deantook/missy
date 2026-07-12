@@ -1,0 +1,12 @@
+:root {
+  --color-bg: #f5f4ef;
+  --color-text: #252622;
+  --color-accent: #df604c;
+  --color-muted: #70716b;
+  --font-sans: "DM Sans", "Noto Sans SC", sans-serif;
+}
+html[data-theme="dark"] {
+  --color-bg: #171816;
+  --color-text: #e7e7e2;
+  --color-muted: #a2a39c;
+}

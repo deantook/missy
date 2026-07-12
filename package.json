@@ -11,10 +11,13 @@
     "web": "vite --config web/vite.config.ts",
     "web:build": "vite build --config web/vite.config.ts",
     "web:preview": "vite preview --config web/vite.config.ts",
+    "web:react": "vite --config web-react/vite.config.ts",
+    "web:react:build": "vite build --config web-react/vite.config.ts",
+    "web:react:preview": "vite preview --config web-react/vite.config.ts",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web-react/tsconfig.json"
   },
   "engines": {
     "node": ">=20"
@@ -32,14 +35,19 @@
     "express": "^5.2.1",
     "langchain": "^1.5.3",
     "marked": "^18.0.6",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
     "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@types/supertest": "^7.2.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "supertest": "^7.2.2",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2",

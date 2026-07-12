@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "app.missy.desktop",
   "build": {
-    "beforeDevCommand": "npm run web",
-    "devUrl": "http://127.0.0.1:5173",
-    "beforeBuildCommand": "npm run web:build",
-    "frontendDist": "../web/dist"
+    "beforeDevCommand": "npm run web:react",
+    "devUrl": "http://127.0.0.1:5174",
+    "beforeBuildCommand": "npm run web:react:build",
+    "frontendDist": "../web-react/dist"
   },
   "app": {
     "windows": [

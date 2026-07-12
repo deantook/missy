@@ -22,7 +22,6 @@ let active: Conversation | null = null;
 let turns: Turn[] = [];
 let pending = false;
 let dismissedChoiceTurnId: string | null = null;
-let authMode: "login" | "register" = "login";
 const sidebarStorageKey = "missy.sidebarCollapsed";
 let sidebarCollapsed = (() => {
   try { return localStorage.getItem(sidebarStorageKey) === "true"; }
@@ -44,8 +43,12 @@ function navigate(path: string): void {
 
 function route(): void {
   if (!user) {
+    if (currentPath() === "/login" || currentPath() === "/register") {
+      renderAuth(currentPath() === "/register" ? "register" : "login");
+      return;
+    }
     if (currentPath() !== "/") history.replaceState(null, "", "/");
-    renderAuth();
+    renderHome();
     return;
   }
   if (currentPath() === "/settings") {
@@ -119,9 +122,94 @@ function showToast(message: string, error = false): void {
   setTimeout(() => document.querySelector(".toast")?.remove(), 3200);
 }
 
-function renderAuth(): void {
-  const registering = authMode === "register";
+function showConfirmDialog(options: { title: string; message: string; confirmLabel?: string }): Promise<boolean> {
+  const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const dialogId = `confirm-dialog-${crypto.randomUUID()}`;
+  root.insertAdjacentHTML("beforeend", `<div class="confirm-dialog-backdrop">
+    <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="${dialogId}-title" aria-describedby="${dialogId}-message">
+      <div class="confirm-dialog-copy"><h3 id="${dialogId}-title">${escapeHtml(options.title)}</h3><p id="${dialogId}-message">${escapeHtml(options.message)}</p></div>
+      <div class="confirm-dialog-actions"><button class="confirm-cancel" type="button">取消</button><button class="confirm-danger" type="button">${escapeHtml(options.confirmLabel ?? "删除")}</button></div>
+    </section>
+  </div>`);
+
+  const backdrop = document.querySelector<HTMLElement>(".confirm-dialog-backdrop:last-child")!;
+  const cancelButton = backdrop.querySelector<HTMLButtonElement>(".confirm-cancel")!;
+  const confirmButton = backdrop.querySelector<HTMLButtonElement>(".confirm-danger")!;
+  return new Promise((resolve) => {
+    const finish = (confirmed: boolean) => {
+      document.removeEventListener("keydown", onKeydown);
+      backdrop.remove();
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+      resolve(confirmed);
+    };
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") finish(false);
+      if (event.key === "Tab") {
+        const next = event.shiftKey ? cancelButton : confirmButton;
+        const edge = event.shiftKey ? confirmButton : cancelButton;
+        if (document.activeElement === edge) { event.preventDefault(); next.focus(); }
+      }
+    };
+    cancelButton.addEventListener("click", () => finish(false));
+    confirmButton.addEventListener("click", () => finish(true));
+    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) finish(false); });
+    document.addEventListener("keydown", onKeydown);
+    requestAnimationFrame(() => cancelButton.focus());
+  });
+}
+
+function renderHome(): void {
+  root.innerHTML = `<main class="landing-page">
+    <header class="landing-header">
+      <button class="landing-logo" type="button" data-route="/" aria-label="Missy 首页"><span>✦</span><strong>Missy</strong></button>
+      <nav aria-label="主页导航"><a href="#features">功能</a><a href="#how-it-works">使用方式</a></nav>
+      <div class="landing-actions"><button class="landing-login" type="button" data-route="/login">登录</button><button class="primary" type="button" data-route="/register">免费开始</button></div>
+    </header>
+    <section class="landing-hero">
+      <div class="hero-copy">
+        <p class="hero-badge"><span>✦</span> 你的滴答清单 AI 助手</p>
+        <h1>说出想法，<br><em>让计划发生。</em></h1>
+        <p class="hero-description">Missy 连接你的滴答清单。用自然语言创建任务、调整日程、查询进度，把琐碎的管理交给 AI。</p>
+        <div class="hero-actions"><button class="primary hero-primary" type="button" data-route="/register">开始使用 <span>→</span></button><button class="hero-secondary" type="button" data-route="/login">已有账户，登录</button></div>
+        <p class="hero-note"><span>✓</span> 几分钟完成连接&nbsp;&nbsp; <span>✓</span> 你的数据按账户隔离</p>
+      </div>
+      <div class="hero-visual" aria-label="Missy 对话界面示意图">
+        <div class="preview-glow"></div>
+        <div class="preview-window">
+          <div class="preview-sidebar"><div class="preview-brand"><span>✦</span><b>Missy</b></div><small>最近对话</small><i class="active"></i><i></i><i class="short"></i></div>
+          <div class="preview-chat">
+            <div class="preview-top"><span>今天的安排</span><i></i></div>
+            <div class="preview-messages">
+              <div class="preview-date">今天</div>
+              <div class="preview-user">帮我安排明天下午写周报，预留 1 小时</div>
+              <div class="preview-reply"><span class="mini-mark">✦</span><div><b>已经安排好了</b><p>明天 15:00–16:00 · 写周报</p><small><i>✓</i> 已同步到滴答清单</small></div></div>
+            </div>
+            <div class="preview-composer">继续告诉 Missy…<b>↑</b></div>
+          </div>
+        </div>
+        <div class="floating-card floating-task"><span>✓</span><div><b>任务已创建</b><small>明天 15:00</small></div></div>
+        <div class="floating-card floating-status"><i></i> 滴答清单已连接</div>
+      </div>
+    </section>
+    <section id="features" class="landing-features">
+      <div><p class="eyebrow">ONE CONVERSATION, MORE DONE</p><h2>少一点整理，多一点完成</h2></div>
+      <div class="feature-grid">
+        <article><span>01</span><h3>自然语言管理</h3><p>像聊天一样创建、修改和完成任务，不必在菜单间来回切换。</p></article>
+        <article><span>02</span><h3>理解你的日程</h3><p>查询今天、未来一周或指定清单，让下一步始终清晰。</p></article>
+        <article id="how-it-works"><span>03</span><h3>安全连接滴答</h3><p>使用你自己的 Token 连接，账户数据彼此隔离，随时可以退出。</p></article>
+      </div>
+    </section>
+    <footer class="landing-footer"><div class="landing-logo"><span>✦</span><strong>Missy</strong></div><p>让每个计划，都有下一步。</p></footer>
+  </main>`;
+  document.querySelectorAll<HTMLButtonElement>("[data-route]").forEach((button) => {
+    button.addEventListener("click", () => navigate(button.dataset.route!));
+  });
+}
+
+function renderAuth(mode: "login" | "register" = "login"): void {
+  const registering = mode === "register";
   root.innerHTML = `<main class="auth-page">
+    <button id="back-home" class="auth-home-link" type="button" aria-label="返回主页"><span>✦</span><strong>Missy</strong></button>
     <section class="auth-brand"><div class="brand-mark">✦</div><p class="eyebrow">DIDA365 · DEEP AGENT</p><h1>让计划，真正<br>开始行动。</h1><p>连接你的滴答清单，用自然语言安排、查询和完成每一天。</p></section>
     <section class="auth-card">
       <div><p class="eyebrow">${registering ? "CREATE ACCOUNT" : "WELCOME BACK"}</p><h2>${registering ? "创建你的账户" : "登录 Missy"}</h2><p>${registering ? "几秒钟即可开始使用。" : "继续管理你的清单与日程。"}</p></div>
@@ -133,7 +221,8 @@ function renderAuth(): void {
       </form>
       <p class="auth-switch">${registering ? "已有账户？" : "还没有账户？"}<button id="switch-auth" type="button">${registering ? "直接登录" : "创建账户"}</button></p>
     </section></main>`;
-  document.querySelector("#switch-auth")!.addEventListener("click", () => { authMode = registering ? "login" : "register"; renderAuth(); });
+  document.querySelector("#back-home")!.addEventListener("click", () => navigate("/"));
+  document.querySelector("#switch-auth")!.addEventListener("click", () => navigate(registering ? "/login" : "/register"));
   document.querySelector<HTMLFormElement>("#auth-form")!.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -221,7 +310,7 @@ function bindSidebarToggle(): void {
 }
 
 function renderApp(): void {
-  if (!user) return renderAuth();
+  if (!user) return route();
   root.innerHTML = `<div class="${appShellClass()}">
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
@@ -513,7 +602,12 @@ async function renameConversation(id: string): Promise<void> {
 
 async function deleteConversation(id: string): Promise<void> {
   const conversation = conversations.find((item) => item.id === id);
-  if (!conversation || !confirm(`确定删除“${conversation.title}”及全部记录吗？`)) return;
+  if (!conversation) return;
+  const confirmed = await showConfirmDialog({
+    title: "删除这个对话？",
+    message: `“${conversation.title}”及其中的全部记录将被永久删除，此操作无法撤销。`,
+  });
+  if (!confirmed) return;
   try {
     await api<void>(`/v1/conversations/${id}`, { method: "DELETE" });
     if (active?.id === id) { active = null; turns = []; }
@@ -562,12 +656,12 @@ function renderSettingsContent(): string {
 }
 
 function renderSettingsPage(): void {
-  if (!user) return renderAuth();
+  if (!user) return route();
   root.innerHTML = `<div class="${appShellClass()}">
     ${renderSidebar()}
     ${sidebarEdgeToggle()}
     <main class="settings-pane">
-      <header class="settings-header">${headerSidebarOpen()}<button id="back-to-chat" class="back-link" type="button" title="返回对话" aria-label="返回对话"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><div class="header-actions">${profileAvatar()}</div></header>
+      <header class="settings-header">${headerSidebarOpen()}<div class="header-actions"><button id="back-to-chat" class="back-link" type="button" title="关闭设置" aria-label="关闭设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></header>
       <div class="settings-content"><div class="settings-intro"><p class="eyebrow">ACCOUNT SETTINGS</p><h1>账户设置</h1><p>管理你的个人资料、服务连接与账户安全。</p></div>${renderSettingsContent()}</div>
     </main></div>`;
   renderConversationList();
@@ -577,7 +671,6 @@ function renderSettingsPage(): void {
 function bindSettingsPageEvents(): void {
   hideContextMenu();
   document.querySelector("#new-chat")!.addEventListener("click", () => { navigate("/"); void createConversation(); });
-  document.querySelector("#profile-button")!.addEventListener("click", () => navigate("/settings"));
   bindSidebarToggle();
   document.querySelector("#back-to-chat")!.addEventListener("click", () => navigate("/"));
   bindSettingsForms();
@@ -593,7 +686,12 @@ function bindSettingsForms(): void {
   submit("#token-form", "/v1/me/dida-token", "PUT", (result) => { user = (result as { user: User }).user; renderSettingsPage(); });
   submit("#password-form", "/v1/me/password", "PUT", () => { (document.querySelector("#password-form") as HTMLFormElement).reset(); });
   document.querySelector("#clear-conversations")!.addEventListener("click", async (event) => {
-    if (!confirm("确定清除全部历史会话吗？清除后将无法在会话列表中找回。")) return;
+    const confirmed = await showConfirmDialog({
+      title: "清除全部历史会话？",
+      message: "所有历史会话都将从会话列表中移除，此操作无法撤销。",
+      confirmLabel: "全部清除",
+    });
+    if (!confirmed) return;
     const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;
     try {
@@ -610,7 +708,7 @@ function bindSettingsForms(): void {
     await api<void>("/v1/auth/logout", { method: "POST" });
     user = null; conversations = []; active = null; turns = [];
     history.replaceState(null, "", "/");
-    renderAuth();
+    renderHome();
   });
   document.querySelector("#delete-account")!.addEventListener("click", async () => {
     const password = prompt("注销会永久删除所有会话。请输入当前密码确认："); if (!password) return;
@@ -618,7 +716,7 @@ function bindSettingsForms(): void {
       await api<void>("/v1/me", { method: "DELETE", body: JSON.stringify({ password }) });
       user = null; conversations = []; active = null; turns = [];
       history.replaceState(null, "", "/");
-      renderAuth();
+      renderHome();
     }
     catch (error) { showToast(error instanceof Error ? error.message : String(error), true); }
   });
@@ -640,7 +738,7 @@ async function bootstrap(): Promise<void> {
     else renderApp();
   } catch {
     user = null;
-    renderAuth();
+    route();
   }
 }
 

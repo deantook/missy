@@ -3,8 +3,8 @@
   min-width: 0;
   flex-direction: column;
   padding: 22px 14px 14px;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-sidebar);
+  border-right: 1px solid #deddd6;
+  background: #eeede7;
 }
 
 .logo {
@@ -21,13 +21,14 @@
   height: 32px;
   place-items: center;
   border-radius: 10px;
-  background: var(--color-accent);
+  background: #df604c;
   color: white;
   font-size: 14px;
 }
 
 .logo strong {
   font-weight: 700;
+  color: #252622;
 }
 
 .history {
@@ -50,7 +51,7 @@
 
 .historyHeader > p {
   margin: 0;
-  color: var(--color-muted);
+  color: #92938d;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -87,12 +88,11 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 .empty {
   padding: 16px 10px;
-  color: var(--color-muted);
+  color: #999;
   font-size: 12px;
 }
 
@@ -115,11 +115,11 @@
 }
 
 .item:hover {
-  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  background: #f3f2ed;
 }
 
 .active {
-  background: var(--color-surface);
+  background: #fff;
   color: #d45440;
   box-shadow: 0 3px 12px #3331;
 }
@@ -140,6 +140,19 @@
   }
 }
 
+html[data-theme="dark"] .sidebar {
+  border-color: #30312d;
+  background: #20211e;
+}
+
+html[data-theme="dark"] .logo strong {
+  color: #f1f1ec;
+}
+
+html[data-theme="dark"] .historyHeader > p {
+  color: #797a74;
+}
+
 html[data-theme="dark"] .newChat:hover {
   background: #30312d;
   color: #fff;
@@ -156,4 +169,5 @@ html[data-theme="dark"] .item:hover {
 html[data-theme="dark"] .active {
   background: #30312c;
   color: #f08a79;
+  box-shadow: 0 3px 14px #0004;
 }

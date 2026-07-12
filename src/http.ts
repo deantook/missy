@@ -7,8 +7,8 @@ import { ChatService, type RunTurn } from "./chat-service.ts";
 import { serializeDebugError } from "./debug-events.ts";
 import { UserMcpManager } from "./agent-runtime.ts";
 import {
-  clearSessionCookie, createSession, deleteCurrentSession, hashPassword, publicUser,
-  setSessionCookie, userFromSession, verifyPassword, type UserRecord,
+  createSession, deleteSessionByToken, hashPassword, publicUser,
+  readBearerToken, userFromBearer, verifyPassword, type UserRecord,
 } from "./auth.ts";
 
 type ErrorCode = "INVALID_REQUEST" | "UNAUTHORIZED" | "EMAIL_CONFLICT" | "INVALID_CREDENTIALS" |
@@ -74,16 +74,32 @@ export function createHttpApp(params: {
   model: string;
   dida365McpUrl: string;
   production?: boolean;
+  corsOrigins?: string[];
   mcpManager?: UserMcpManager;
   runTurn?: RunTurn;
   ready?: () => boolean;
 }) {
   const app = express();
-  const secure = params.production === true;
   const mcp = params.mcpManager ?? new UserMcpManager(params.model, params.dida365McpUrl);
   const chat = new ChatService(params.database, params.model, mcp, params.runTurn);
   app.disable("x-powered-by");
   app.use(express.json({ limit: "64kb" }));
+
+  const allowedOrigins = new Set(params.corsOrigins ?? []);
+  app.use((req, res, next) => {
+    const origin = req.header("origin");
+    if (origin && allowedOrigins.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
 
   app.get("/health", async (_req, res) => {
     const db = await databaseReady(params.database);
@@ -92,7 +108,7 @@ export function createHttpApp(params: {
   });
 
   const authenticated = async (req: Request, res: Response): Promise<UserRecord | null> => {
-    const user = await userFromSession(params.database, req.header("cookie"));
+    const user = await userFromBearer(params.database, req.header("authorization"));
     if (!user) sendError(res, 401, "UNAUTHORIZED", "请先登录。");
     return user;
   };
@@ -106,8 +122,11 @@ export function createHttpApp(params: {
       const result = await params.database.query<UserRecord>(`INSERT INTO users(email, display_name, password_hash)
         VALUES ($1, $2, $3) RETURNING *`, [email, displayName, await hashPassword(password)]);
       const session = await createSession(params.database, result.rows[0]!.id);
-      setSessionCookie(res, session.token, session.expiresAt, secure);
-      res.status(201).json({ user: publicUser(result.rows[0]!) });
+      res.status(201).json({
+        user: publicUser(result.rows[0]!),
+        token: session.token,
+        expiresAt: session.expiresAt.toISOString(),
+      });
     } catch (error) {
       if ((error as { code?: string }).code === "23505") return sendError(res, 409, "EMAIL_CONFLICT", "该邮箱已注册。");
       throw error;
@@ -122,13 +141,16 @@ export function createHttpApp(params: {
     const user = result.rows[0];
     if (!user || !await verifyPassword(password, user.password_hash)) return sendError(res, 401, "INVALID_CREDENTIALS", "邮箱或密码错误。");
     const session = await createSession(params.database, user.id);
-    setSessionCookie(res, session.token, session.expiresAt, secure);
-    res.json({ user: publicUser(user) });
+    res.json({
+      user: publicUser(user),
+      token: session.token,
+      expiresAt: session.expiresAt.toISOString(),
+    });
   });
 
   app.post("/v1/auth/logout", async (req, res) => {
-    await deleteCurrentSession(params.database, req.header("cookie"));
-    clearSessionCookie(res, secure);
+    const token = readBearerToken(req.header("authorization"));
+    if (token) await deleteSessionByToken(params.database, token);
     res.status(204).end();
   });
 
@@ -183,7 +205,6 @@ export function createHttpApp(params: {
     if (!await verifyPassword(password, user.password_hash)) return sendError(res, 401, "INVALID_CREDENTIALS", "密码错误。");
     await mcp.invalidate(user.id);
     await params.database.query("DELETE FROM users WHERE id = $1", [user.id]);
-    clearSessionCookie(res, secure);
     res.status(204).end();
   });
 

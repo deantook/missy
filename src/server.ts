@@ -26,8 +26,13 @@ async function main(): Promise<void> {
 
   try {
     const app = createHttpApp({
-      database, model: config.model, dida365McpUrl: config.dida365McpUrl,
-      production: config.nodeEnv === "production", mcpManager, ready: () => !closing,
+      database,
+      model: config.model,
+      dida365McpUrl: config.dida365McpUrl,
+      production: config.nodeEnv === "production",
+      corsOrigins: config.corsOrigins,
+      mcpManager,
+      ready: () => !closing,
     });
     server = await new Promise<Server>((resolve, reject) => {
       const listening = app.listen(config.httpPort, config.httpHost, () => resolve(listening));

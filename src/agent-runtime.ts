@@ -94,6 +94,7 @@ export async function runAgentTurn(params: {
   message: string;
   conversationId: string;
   allowDelete: boolean;
+  signal?: AbortSignal;
   onToken?: (token: string, reset?: boolean) => void | Promise<void>;
   onDebug?: DebugSink;
 }): Promise<{ message: string; usage: TokenUsage }> {
@@ -103,10 +104,14 @@ export async function runAgentTurn(params: {
     const config = { configurable: { thread_id: params.conversationId }, callbacks: [collector.callback] };
     let streamedMessageId: string | undefined;
     const stream = async (input: unknown): Promise<AgentResult> => {
-      const events = await agent.stream(input as never, { ...config, streamMode: ["messages", "values"] });
+      const events = await agent.stream(input as never, {
+        ...config,
+        signal: params.signal,
+        streamMode: ["messages", "values"],
+      } as never);
       let latest: AgentResult | undefined;
       for await (const rawEvent of events) {
-        const [mode, payload] = rawEvent as [string, unknown];
+        const [mode, payload] = rawEvent as unknown as [string, unknown];
         if (mode === "values") {
           latest = payload as AgentResult;
           continue;

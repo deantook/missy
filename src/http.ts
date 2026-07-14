@@ -12,7 +12,7 @@ import {
 } from "./auth.ts";
 
 type ErrorCode = "INVALID_REQUEST" | "UNAUTHORIZED" | "EMAIL_CONFLICT" | "INVALID_CREDENTIALS" |
-  "NOT_FOUND" | "DIDA_TOKEN_REQUIRED" | "DIDA_TOKEN_INVALID" | "AGENT_ERROR" | "INTERNAL_ERROR" | "NOT_READY";
+  "NOT_FOUND" | "DIDA_TOKEN_REQUIRED" | "DIDA_TOKEN_INVALID" | "AGENT_ERROR" | "CANCELED" | "INTERNAL_ERROR" | "NOT_READY";
 
 function sendError(res: Response, status: number, code: ErrorCode, message: string) {
   res.status(status).json({ error: { code, message } });
@@ -248,6 +248,36 @@ export function createHttpApp(params: {
     if (!conversation.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
     const turns = await params.database.query(`SELECT * FROM chat_turns WHERE conversation_id = $1 ORDER BY created_at, id`, [req.params.id]);
     res.json({ conversation: conversationJson(conversation.rows[0]), turns: turns.rows.map(turnJson) });
+  });
+
+  app.get("/v1/conversations/:id/turns/:turnId", async (req, res) => {
+    const user = await authenticated(req, res); if (!user) return;
+    const result = await params.database.query(
+      `SELECT t.* FROM chat_turns t JOIN conversations c ON c.id = t.conversation_id
+       WHERE t.id = $1 AND t.conversation_id = $2 AND c.user_id = $3 AND c.hidden_at IS NULL`,
+      [req.params.turnId, req.params.id, user.id],
+    );
+    if (!result.rowCount) return sendError(res, 404, "NOT_FOUND", "回复不存在。");
+    res.json({ turn: turnJson(result.rows[0]!) });
+  });
+
+  app.post("/v1/conversations/:id/turns/:turnId/cancel", async (req, res) => {
+    const user = await authenticated(req, res); if (!user) return;
+    const conversation = await params.database.query(
+      "SELECT id FROM conversations WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL",
+      [req.params.id, user.id],
+    );
+    if (!conversation.rowCount) return sendError(res, 404, "NOT_FOUND", "会话不存在。");
+    const canceled = await chat.cancel(user.id, req.params.id!, req.params.turnId!);
+    const result = await params.database.query(
+      "SELECT * FROM chat_turns WHERE id = $1 AND conversation_id = $2",
+      [req.params.turnId, req.params.id],
+    );
+    if (!result.rowCount) return sendError(res, 404, "NOT_FOUND", "回复不存在。");
+    if (!canceled && result.rows[0].status === "pending") {
+      return sendError(res, 409, "INVALID_REQUEST", "本轮暂时无法停止，请稍后刷新状态。");
+    }
+    res.json({ turn: turnJson(result.rows[0]!) });
   });
 
   app.put("/v1/conversations/:id/turns/:turnId/feedback", async (req, res) => {

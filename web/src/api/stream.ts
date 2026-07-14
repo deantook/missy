@@ -1,11 +1,12 @@
 import { apiUrl, authHeaders, triggerUnauthorized } from "./client.ts";
 import type { StreamEvent } from "../types.ts";
 
-export async function streamApi(url: string, body: unknown, onEvent: (event: StreamEvent) => void): Promise<void> {
+export async function streamApi(url: string, body: unknown, onEvent: (event: StreamEvent) => void, signal?: AbortSignal): Promise<void> {
   const response = await fetch(apiUrl(url), {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json", Accept: "application/x-ndjson" }),
     body: JSON.stringify(body),
+    signal,
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({})) as { error?: { message?: string; code?: string } };

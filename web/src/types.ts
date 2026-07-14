@@ -28,7 +28,7 @@ export type Turn = {
   id: string;
   userContent: string;
   assistantContent: string | null;
-  status: "pending" | "succeeded" | "failed";
+  status: "pending" | "succeeded" | "failed" | "canceled" | "unknown";
   errorMessage?: string | null;
   feedback?: "like" | "dislike" | null;
   usage: Usage;

@@ -82,6 +82,12 @@
   color: #a83b2c;
 }
 
+.canceled {
+  border-color: #e6c45f;
+  background: #fff9df;
+  color: #806315;
+}
+
 .retry {
   margin-top: 8px;
   padding: 6px 10px;
@@ -185,6 +191,12 @@ html[data-theme="dark"] .failed {
   border-color: #713d35;
   background: #352321;
   color: #f2a396;
+}
+
+html[data-theme="dark"] .canceled {
+  border-color: #8d762d;
+  background: #3b3218;
+  color: #f0d77b;
 }
 
 html[data-theme="dark"] .retry {

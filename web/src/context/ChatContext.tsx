@@ -21,6 +21,7 @@ type ChatContextValue = {
   active: Conversation | null;
   turns: Turn[];
   pending: boolean;
+  stopMessage: () => Promise<void>;
   loadConversations: () => Promise<void>;
   createConversation: () => Promise<Conversation | null>;
   openConversation: (id: string) => Promise<void>;
@@ -44,6 +45,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false), loadedUserRef = useRef<string | null>(null);
+  const stopRef = useRef<(() => Promise<void>) | null>(null);
   const [debugRevision, setDebugVersion] = useState(0);
   const debugTimeline = useRef(new DebugTimeline()).current;
   const bumpDebug = useCallback(() => setDebugVersion((version) => version + 1), []);
@@ -184,10 +186,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         debugTimeline,
         clearDebug,
         bumpDebug,
+        stopRef,
       });
     },
     [active, bumpDebug, clearDebug, createConversation, debugTimeline, loadConversationList, user],
   );
+
+  const stopMessage = useCallback(async () => {
+    await stopRef.current?.();
+  }, []);
 
   const retryTurn = useCallback(
     async (turnId: string) => {
@@ -220,6 +227,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       active,
       turns,
       pending,
+      stopMessage,
       loadConversations,
       createConversation,
       openConversation,
@@ -238,6 +246,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       active,
       turns,
       pending,
+      stopMessage,
       loadConversations,
       createConversation,
       openConversation,

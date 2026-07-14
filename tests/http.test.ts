@@ -92,6 +92,14 @@ describe("multi-user HTTP API", () => {
     expect(loaded.body.conversation.usage.totalTokens).toBe(17);
     expect(loaded.body.turns[0].assistantContent).toBe("完成：今天有什么任务？");
     expect(loaded.body.turns[0].feedback).toBeNull();
+    const resolvedTurn = await request(app())
+      .get(`/v1/conversations/${id}/turns/${sent.body.turn.id}`)
+      .set(bearer(firstToken)).expect(200);
+    expect(resolvedTurn.body.turn).toMatchObject({
+      id: sent.body.turn.id,
+      status: "succeeded",
+      assistantContent: "完成：今天有什么任务？",
+    });
 
     const liked = await request(app()).put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).set(bearer(firstToken))
       .send({ feedback: "like" }).expect(200);
@@ -107,6 +115,7 @@ describe("multi-user HTTP API", () => {
 
     const second = await register(emails[1]!);
     await request(app()).get(`/v1/conversations/${id}`).set(bearer(second.token)).expect(404);
+    await request(app()).get(`/v1/conversations/${id}/turns/${sent.body.turn.id}`).set(bearer(second.token)).expect(404);
     await request(app()).put(`/v1/conversations/${id}/turns/${sent.body.turn.id}/feedback`).set(bearer(second.token))
       .send({ feedback: "like" }).expect(404);
     await request(app()).patch(`/v1/conversations/${id}`).set(bearer(second.token))

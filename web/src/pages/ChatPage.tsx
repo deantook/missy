@@ -30,6 +30,7 @@ export function ChatPage() {
     active,
     turns,
     pending,
+    stopMessage,
     loadConversations,
     openConversation,
     sendMessage,
@@ -146,7 +147,7 @@ export function ChatPage() {
         retryTurn={retryTurn}
         setTurnFeedback={setTurnFeedback}
       />
-      <Composer pending={pending} didaTokenConfigured={didaReady} sendMessage={sendMessage} />
+      <Composer pending={pending} didaTokenConfigured={didaReady} sendMessage={sendMessage} stopMessage={stopMessage} />
       {pendingChoice ? (
         <ChoiceDialog
           prompt={pendingChoice.prompt}

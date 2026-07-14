@@ -14,6 +14,8 @@ type MessageBubbleProps = {
 function MessageBubbleComponent({ turn, pending, retryTurn, setTurnFeedback }: MessageBubbleProps) {
   const assistantText = visibleAssistantContent(turn.assistantContent);
   const failed = turn.status === "failed";
+  const canceled = turn.status === "canceled";
+  const unknown = turn.status === "unknown";
   const showTyping = turn.status === "pending" && !assistantText;
   const showFeedback = turn.status === "succeeded";
   const like = turn.feedback === "like";
@@ -30,8 +32,10 @@ function MessageBubbleComponent({ turn, pending, retryTurn, setTurnFeedback }: M
       <article className={`${styles.message} ${styles.assistant}`}>
         <div className={styles.content}>
           <p className={styles.label}>Missy</p>
-          <div className={`${styles.bubble} ${styles.assistantBubble} ${failed ? styles.failed : ""}`}>
+          <div className={`${styles.bubble} ${styles.assistantBubble} ${failed || unknown ? styles.failed : ""} ${canceled ? styles.canceled : ""}`}>
             {failed ? `请求失败：${turn.errorMessage || "未知错误"}` : null}
+            {canceled ? turn.errorMessage || "已停止行动" : null}
+            {unknown ? `结果未知：${turn.errorMessage || "请刷新会话确认执行结果。"}` : null}
             {showTyping ? (
               <span className={styles.typing} aria-label="Missy 正在输入">
                 <i />
@@ -39,7 +43,7 @@ function MessageBubbleComponent({ turn, pending, retryTurn, setTurnFeedback }: M
                 <i />
               </span>
             ) : null}
-            {!failed && assistantText ? <Markdown content={assistantText} /> : null}
+            {!failed && !canceled && !unknown && assistantText ? <Markdown content={assistantText} /> : null}
           </div>
           {failed ? (
             <button

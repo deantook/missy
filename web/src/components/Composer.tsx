@@ -5,9 +5,10 @@ type ComposerProps = {
   pending: boolean;
   didaTokenConfigured: boolean;
   sendMessage: (message: string) => Promise<void>;
+  stopMessage: () => Promise<void>;
 };
 
-export function Composer({ pending, didaTokenConfigured, sendMessage }: ComposerProps) {
+export function Composer({ pending, didaTokenConfigured, sendMessage, stopMessage }: ComposerProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const disabled = !didaTokenConfigured || pending;
@@ -51,9 +52,15 @@ export function Composer({ pending, didaTokenConfigured, sendMessage }: Composer
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={onKeyDown}
         />
-        <button className={styles.send} type="submit" disabled={disabled || !trimmed} aria-label="发送">
-          ↑
-        </button>
+        {pending ? (
+          <button className={styles.stop} type="button" onClick={() => void stopMessage()} aria-label="停止行动">
+            ■
+          </button>
+        ) : (
+          <button className={styles.send} type="submit" disabled={disabled || !trimmed} aria-label="发送">
+            ↑
+          </button>
+        )}
       </form>
       <p className={styles.hint}>Missy 可能出错 请谨慎斟酌内容</p>
     </div>

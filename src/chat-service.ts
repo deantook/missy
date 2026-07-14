@@ -22,6 +22,7 @@ type StreamCallbacks = {
 
 export class ChatService {
   private readonly queues = new Map<string, Promise<void>>();
+  private readonly activeRuns = new Map<string, { userId: string; conversationId: string; controller: AbortController }>();
 
   constructor(
     private readonly database: Database,
@@ -45,11 +46,21 @@ export class ChatService {
     }
   }
 
+  async cancel(userId: string, conversationId: string, turnId: string): Promise<boolean> {
+    const run = this.activeRuns.get(turnId);
+    if (!run || run.userId !== userId || run.conversationId !== conversationId) return false;
+    run.controller.abort();
+    await this.cancelTurn(turnId, conversationId, { inputTokens: null, outputTokens: null, totalTokens: null });
+    return true;
+  }
+
   private async execute(params: { userId: string; didaToken: string; conversationId: string; message: string; allowDelete: boolean; debug?: boolean } & StreamCallbacks) {
     const conversation = await this.database.query("SELECT id FROM conversations WHERE id = $1 AND user_id = $2 AND hidden_at IS NULL", [params.conversationId, params.userId]);
     if (!conversation.rowCount) throw Object.assign(new Error("会话不存在。"), { status: 404, code: "NOT_FOUND" });
     const turn = await this.database.query<{ id: string; created_at: string }>("INSERT INTO chat_turns(conversation_id, user_content) VALUES ($1, $2) RETURNING id, created_at", [params.conversationId, params.message]);
     const turnId = turn.rows[0]!.id;
+    const controller = new AbortController();
+    this.activeRuns.set(turnId, { userId: params.userId, conversationId: params.conversationId, controller });
     let usage: TokenUsage = { inputTokens: null, outputTokens: null, totalTokens: null };
     try {
       await params.onStart?.({
@@ -66,19 +77,39 @@ export class ChatService {
       const result = await this.runner({
         model: this.model, tools, history, message: params.message,
         conversationId: params.conversationId, allowDelete: params.allowDelete,
+        signal: controller.signal,
         onToken: params.onDelta,
         onDebug: params.onDebug,
       });
+      if (controller.signal.aborted) throw new Error("已停止行动。");
       usage = result.usage;
       await this.complete(turnId, params.conversationId, params.message, result.message, usage);
       return { id: turnId, userContent: params.message, assistantContent: result.message, status: "succeeded", feedback: null, usage, createdAt: new Date().toISOString() };
     } catch (error) {
       if (error instanceof AgentRunError) usage = error.usage;
       const message = error instanceof Error ? error.message : String(error);
+      if (controller.signal.aborted) {
+        await this.cancelTurn(turnId, params.conversationId, usage);
+        throw Object.assign(new Error("已停止行动。"), { status: 499, code: "CANCELED" });
+      }
       await this.fail(turnId, params.conversationId, message, usage);
       const wrapped = error instanceof Error ? error : new Error(message);
       throw Object.assign(wrapped, { status: 502, code: "AGENT_ERROR", message });
+    } finally {
+      this.activeRuns.delete(turnId);
     }
+  }
+
+  private async cancelTurn(turnId: string, conversationId: string, usage: TokenUsage): Promise<void> {
+    const result = await this.database.query(`UPDATE chat_turns SET status = 'canceled', error_message = $2,
+      input_tokens = $3, output_tokens = $4, total_tokens = $5, completed_at = now()
+      WHERE id = $1 AND status = 'pending'`,
+      [turnId, "已停止行动。", usage.inputTokens, usage.outputTokens, usage.totalTokens]);
+    if (!result.rowCount) return;
+    await this.database.query(`UPDATE conversations SET input_tokens = input_tokens + COALESCE($2, 0),
+      output_tokens = output_tokens + COALESCE($3, 0), total_tokens = total_tokens + COALESCE($4, 0),
+      updated_at = now() WHERE id = $1`,
+      [conversationId, usage.inputTokens, usage.outputTokens, usage.totalTokens]);
   }
 
   private async complete(turnId: string, conversationId: string, userMessage: string, assistantMessage: string, usage: TokenUsage): Promise<void> {

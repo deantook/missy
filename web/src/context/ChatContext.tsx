@@ -28,6 +28,7 @@ type ChatContextValue = {
   deleteConversation: (id: string) => Promise<void>;
   clearAllConversations: () => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
+  retryTurn: (turnId: string) => Promise<void>;
   setTurnFeedback: (turnId: string, feedback: Feedback) => Promise<void>;
   debugTimeline: DebugTimeline;
   debugRevision: number;
@@ -188,6 +189,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [active, bumpDebug, clearDebug, createConversation, debugTimeline, loadConversationList, user],
   );
 
+  const retryTurn = useCallback(
+    async (turnId: string) => {
+      if (pending) return;
+      const turn = turns.find((item) => item.id === turnId);
+      if (!turn || turn.status !== "failed") return;
+      setTurns((items) => items.filter((item) => item.id !== turnId));
+      await sendMessage(turn.userContent);
+    },
+    [pending, sendMessage, turns],
+  );
+
   useEffect(() => {
     if (!user) {
       loadedUserRef.current = null;
@@ -215,6 +227,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       deleteConversation,
       clearAllConversations,
       sendMessage,
+      retryTurn,
       setTurnFeedback,
       debugTimeline,
       debugRevision,
@@ -232,6 +245,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       deleteConversation,
       clearAllConversations,
       sendMessage,
+      retryTurn,
       setTurnFeedback,
       debugTimeline,
       debugRevision,
@@ -247,4 +261,3 @@ export function useChat(): ChatContextValue {
   if (!ctx) throw new Error("useChat must be used within ChatProvider");
   return ctx;
 }
-

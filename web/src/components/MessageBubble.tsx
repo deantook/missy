@@ -7,10 +7,11 @@ import styles from "./MessageBubble.module.css";
 type MessageBubbleProps = {
   turn: Turn;
   pending: boolean;
+  retryTurn: (turnId: string) => Promise<void>;
   setTurnFeedback: (turnId: string, feedback: "like" | "dislike") => Promise<void>;
 };
 
-function MessageBubbleComponent({ turn, pending, setTurnFeedback }: MessageBubbleProps) {
+function MessageBubbleComponent({ turn, pending, retryTurn, setTurnFeedback }: MessageBubbleProps) {
   const assistantText = visibleAssistantContent(turn.assistantContent);
   const failed = turn.status === "failed";
   const showTyping = turn.status === "pending" && !assistantText;
@@ -40,6 +41,16 @@ function MessageBubbleComponent({ turn, pending, setTurnFeedback }: MessageBubbl
             ) : null}
             {!failed && assistantText ? <Markdown content={assistantText} /> : null}
           </div>
+          {failed ? (
+            <button
+              type="button"
+              className={styles.retry}
+              disabled={pending}
+              onClick={() => void retryTurn(turn.id)}
+            >
+              重试
+            </button>
+          ) : null}
           {showFeedback ? (
             <div className={styles.feedback} role="group" aria-label="回复评价">
               <button

@@ -13,10 +13,11 @@ type MessageListProps = {
   turns: Turn[];
   pending: boolean;
   sendMessage: (message: string) => Promise<void>;
+  retryTurn: (turnId: string) => Promise<void>;
   setTurnFeedback: (turnId: string, feedback: "like" | "dislike") => Promise<void>;
 };
 
-export function MessageList({ turns, pending, sendMessage, setTurnFeedback }: MessageListProps) {
+export function MessageList({ turns, pending, sendMessage, retryTurn, setTurnFeedback }: MessageListProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export function MessageList({ turns, pending, sendMessage, setTurnFeedback }: Me
           key={turn.id}
           turn={turn}
           pending={pending}
+          retryTurn={retryTurn}
           setTurnFeedback={setTurnFeedback}
         />
       ))}

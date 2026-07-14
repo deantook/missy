@@ -33,6 +33,7 @@ export function ChatPage() {
     loadConversations,
     openConversation,
     sendMessage,
+    retryTurn,
     setTurnFeedback,
   } = useChat();
   const requestedLoad = useRef(false);
@@ -142,6 +143,7 @@ export function ChatPage() {
         turns={turns}
         pending={pending}
         sendMessage={sendMessage}
+        retryTurn={retryTurn}
         setTurnFeedback={setTurnFeedback}
       />
       <Composer pending={pending} didaTokenConfigured={didaReady} sendMessage={sendMessage} />

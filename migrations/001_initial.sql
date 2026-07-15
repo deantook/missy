@@ -31,21 +31,27 @@ CREATE TABLE IF NOT EXISTS conversations (
   input_tokens bigint NOT NULL DEFAULT 0,
   output_tokens bigint NOT NULL DEFAULT 0,
   total_tokens bigint NOT NULL DEFAULT 0,
+  hidden_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS conversations_user_updated_idx ON conversations(user_id, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS conversations_visible_user_updated_idx
+  ON conversations(user_id, updated_at DESC, id DESC)
+  WHERE hidden_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS chat_turns (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   user_content text NOT NULL,
   assistant_content text,
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'failed')),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'failed', 'canceled')),
   error_message text,
   input_tokens bigint,
   output_tokens bigint,
   total_tokens bigint,
+  feedback text CHECK (feedback IS NULL OR feedback IN ('like', 'dislike')),
+  feedback_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz
 );

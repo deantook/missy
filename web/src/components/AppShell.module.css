@@ -88,7 +88,8 @@ html[data-theme="dark"] .edgeToggle:hover {
 }
 
 @media (min-width: 761px) {
-  .collapsed > aside {
+  /* Only the conversation sidebar — DebugPane is also an <aside>. */
+  .collapsed > aside:not(:global(.debug-pane)) {
     pointer-events: none;
     opacity: 0;
     transform: translateX(-100%);

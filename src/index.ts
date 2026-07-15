@@ -22,7 +22,9 @@ async function main(): Promise<void> {
     });
 
     console.log(
-      `已连接 MCP，工具数: ${mcp.tools.length}；删除确认: ${Object.keys(interruptOn).join(", ") || "(无)"}`,
+      `已连接 MCP，工具数: ${mcp.tools.length}` +
+        (mcp.filteredToolNames.length ? `；已过滤: ${mcp.filteredToolNames.join(", ")}` : "") +
+        `；删除确认: ${Object.keys(interruptOn).join(", ") || "(无)"}`,
     );
 
     await runRepl(agent);

@@ -5,7 +5,12 @@ export type TaskAgent = ReturnType<typeof createTaskAgent>["agent"];
 export type AgentResult = Awaited<ReturnType<TaskAgent["invoke"]>>;
 export type DeleteDecision = "approve" | "reject";
 
-type ToolCall = { id?: string; name?: string };
+type ToolCall = {
+  id?: string;
+  name?: string;
+  args?: unknown;
+  arguments?: unknown;
+};
 type AgentMessage = {
   name?: string;
   status?: string;
@@ -94,6 +99,145 @@ function findProjectId(value: unknown): string | undefined {
     if (found) return found;
   }
   return undefined;
+}
+
+function findTaskId(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    try {
+      return findTaskId(JSON.parse(trimmed));
+    } catch {
+      const match = trimmed.match(/(?:task[_ ]?id|\"id\")\s*[:=]\s*[\"']?([\w-]+)/i);
+      return match?.[1];
+    }
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findTaskId(item);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of ["id", "taskId", "task_id"]) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+  for (const key of ["text", "content", "data", "result", "task"]) {
+    const found = findTaskId(record[key]);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+type SuccessfulTaskWrite = {
+  callId: string;
+  name: "create_task" | "batch_add_tasks";
+  args: Record<string, unknown>;
+};
+
+function parseArgs(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  return {};
+}
+
+function nonEmptyParentId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function createTaskParentId(args: Record<string, unknown>): string | undefined {
+  return nonEmptyParentId(args.parentId);
+}
+
+function batchItems(args: Record<string, unknown>): Record<string, unknown>[] {
+  for (const key of ["tasks", "items"]) {
+    const value = args[key];
+    if (Array.isArray(value)) {
+      return value.filter((item): item is Record<string, unknown> =>
+        !!item && typeof item === "object" && !Array.isArray(item));
+    }
+  }
+  return [];
+}
+
+function batchMissingParentId(args: Record<string, unknown>): boolean {
+  const items = batchItems(args);
+  if (!items.length) return true;
+  return items.some((item) => !nonEmptyParentId(item.parentId));
+}
+
+function successfulTaskWrites(result: { messages?: unknown }): SuccessfulTaskWrite[] {
+  if (!Array.isArray(result.messages)) return [];
+  const calls = new Map<string, { name: "create_task" | "batch_add_tasks"; args: Record<string, unknown> }>();
+  for (const raw of result.messages) {
+    const message = raw as AgentMessage;
+    for (const call of message.tool_calls ?? []) {
+      if (!call.id || (call.name !== "create_task" && call.name !== "batch_add_tasks")) continue;
+      calls.set(call.id, {
+        name: call.name,
+        args: parseArgs(call.args ?? call.arguments),
+      });
+    }
+  }
+  const writes: SuccessfulTaskWrite[] = [];
+  for (const raw of result.messages) {
+    const message = raw as AgentMessage;
+    if (message.getType?.() !== "tool" || message.status === "error" || !message.tool_call_id) continue;
+    const call = calls.get(message.tool_call_id);
+    if (!call) continue;
+    writes.push({ callId: message.tool_call_id, name: call.name, args: call.args });
+  }
+  return writes;
+}
+
+export function latestCreatedParentTaskId(result: { messages?: unknown }): string | undefined {
+  if (!Array.isArray(result.messages)) return undefined;
+  const writes = successfulTaskWrites(result);
+  const parentCalls = writes.filter((w) => w.name === "create_task" && !createTaskParentId(w.args));
+  if (!parentCalls.length) return undefined;
+  const parentCallIds = new Set(parentCalls.map((w) => w.callId));
+  let taskId: string | undefined;
+  for (const raw of result.messages) {
+    const message = raw as AgentMessage & { content?: unknown };
+    if (message.getType?.() !== "tool" || message.status === "error") continue;
+    if (!message.tool_call_id || !parentCallIds.has(message.tool_call_id)) continue;
+    taskId = findTaskId(message.content) ?? taskId;
+  }
+  return taskId;
+}
+
+export function parentTaskCreationNeedsVerification(result: { messages?: unknown }): boolean {
+  const writes = successfulTaskWrites(result);
+  const createCount = writes.filter((w) => w.name === "create_task").length;
+  const hasBatch = writes.some((w) => w.name === "batch_add_tasks");
+  const multiWrite = createCount >= 2 || (createCount >= 1 && hasBatch);
+  if (!multiWrite) return false;
+
+  const parentIndex = writes.findIndex((w) => w.name === "create_task" && !createTaskParentId(w.args));
+  if (parentIndex < 0) return false;
+
+  const after = writes.slice(parentIndex + 1);
+  if (!after.length) return false;
+
+  return after.some((w) => {
+    if (w.name === "create_task") return !createTaskParentId(w.args);
+    return batchMissingParentId(w.args);
+  });
 }
 
 export function hasRenderableChoicePrompt(message: string): boolean {

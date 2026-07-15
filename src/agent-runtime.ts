@@ -1,7 +1,16 @@
 import { createHash } from "node:crypto";
 import type { NamedTool } from "./agent.ts";
 import { createTaskAgent } from "./agent.ts";
-import { lastAssistantText, latestCreatedProjectId, needsStructuredClarification, projectCreationNeedsVerification, resolveInterruptsWith, type AgentResult } from "./conversation.ts";
+import {
+  lastAssistantText,
+  latestCreatedParentTaskId,
+  latestCreatedProjectId,
+  needsStructuredClarification,
+  parentTaskCreationNeedsVerification,
+  projectCreationNeedsVerification,
+  resolveInterruptsWith,
+  type AgentResult,
+} from "./conversation.ts";
 import {
   debugEventsFromStreamMessage,
   type DebugEvent,
@@ -170,6 +179,26 @@ export async function runAgentTurn(params: {
     }
     if (projectCreationNeedsVerification(result)) {
       throw new Error("清单任务写入或回查验证未完成；系统已阻止返回错误的成功结果，请重试。");
+    }
+    let didParentVerify = false;
+    for (let attempt = 0; attempt < 2 && parentTaskCreationNeedsVerification(result); attempt += 1) {
+      didParentVerify = true;
+      await params.onDebug?.({ kind: "note", message: "父子任务结构校验重试" });
+      await params.onDebug?.({ kind: "phase", phase: "verify", status: "start" });
+      const parentId = latestCreatedParentTaskId(result);
+      const parentHint = parentId
+        ? `刚才作为父任务的 create_task 返回的真实任务 ID 是 ${JSON.stringify(parentId)}。`
+        : "请从此前无 parentId 的 create_task 工具结果读取真实父任务 ID。";
+      result = await stream({ messages: [{
+        role: "user" as const,
+        content: `系统一致性检查：多步骤拆解的父子任务结构尚未完整。不要重复创建父任务，也不要向用户提问。${parentHint} 为应作为子步骤的任务补建或修正时，必须填入 parentId（驼峰，值为父任务 ID）以及递增的 sortOrder；同清单时带同一 projectId。禁止把步骤建成同级平铺。只有父子结构正确后才能报告成功。`,
+      }] });
+    }
+    if (didParentVerify) {
+      await params.onDebug?.({ kind: "phase", phase: "verify", status: "done" });
+    }
+    if (parentTaskCreationNeedsVerification(result)) {
+      throw new Error("父子任务结构验证未完成；系统已阻止返回错误的成功结果，请重试。");
     }
     for (let attempt = 0; attempt < 2 && needsStructuredClarification(lastAssistantText(result)); attempt += 1) {
       await params.onDebug?.({ kind: "note", message: "choice_prompt 重写" });
